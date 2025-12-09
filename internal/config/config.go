@@ -53,7 +53,7 @@ func LoadConfig() (*Config, error) {
 		},
 		HTTP: HTTPConfig{
 			Host: getEnv("HTTP_HOST", "0.0.0.0"),
-			Port: getEnv("HTTP_PORT", "8080"),
+			Port: getEnv("HTTP_PORT", "4569"),
 		},
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", "your-secret-key"),
