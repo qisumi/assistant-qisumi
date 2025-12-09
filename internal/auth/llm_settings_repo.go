@@ -8,13 +8,13 @@ import (
 
 // LLMSetting 用户LLM配置结构体
 type LLMSetting struct {
-	ID        uint64     `json:"id"`
-	UserID    uint64     `json:"user_id"`
-	BaseURL   string     `json:"base_url"`
-	APIKeyEnc string     `json:"api_key_enc"` // 加密后的API密钥
-	Model     string     `json:"model"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID        uint64    `json:"id"`
+	UserID    uint64    `json:"user_id"`
+	BaseURL   string    `json:"base_url"`
+	APIKeyEnc string    `json:"api_key_enc"` // 加密后的API密钥
+	Model     string    `json:"model"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // LLMSettingRepository 用户LLM配置仓库

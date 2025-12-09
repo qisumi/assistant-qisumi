@@ -125,7 +125,7 @@ func migrateDB(db *sql.DB) error {
 	  predecessor_step_id BIGINT UNSIGNED NULL,
 	  successor_task_id BIGINT UNSIGNED NOT NULL,
 	  successor_step_id BIGINT UNSIGNED NULL,
-	  condition ENUM('task_done','step_done') NOT NULL,
+	  dependency_condition ENUM('task_done','step_done') NOT NULL,
 	  action ENUM('unlock_step','set_task_todo','notify_only') NOT NULL DEFAULT 'unlock_step',
 	  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	  CONSTRAINT fk_dep_pre_task FOREIGN KEY (predecessor_task_id) REFERENCES tasks(id),

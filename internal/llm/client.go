@@ -15,8 +15,11 @@ type Config struct {
 }
 
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Name       string     `json:"name,omitempty"`
 }
 
 type ChatRequest struct {
@@ -29,8 +32,8 @@ type ChatRequest struct {
 }
 
 type Tool struct {
-	Type     string          `json:"type"`
-	Function ToolFunction    `json:"function"`
+	Type     string       `json:"type"`
+	Function ToolFunction `json:"function"`
 }
 
 type ToolFunction struct {
@@ -39,12 +42,29 @@ type ToolFunction struct {
 	Parameters  map[string]interface{} `json:"parameters"`
 }
 
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function ToolCallFunc `json:"function"`
+}
+
+type ToolCallFunc struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type ChatMessage struct {
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Name       string     `json:"name,omitempty"`
+}
+
 type ChatResponse struct {
 	Choices []struct {
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		}
+		Message      ChatMessage `json:"message"`
+		FinishReason string      `json:"finish_reason"`
 	} `json:"choices"`
 }
 

@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config 应用程序配置
@@ -11,6 +13,14 @@ type Config struct {
 	HTTP   HTTPConfig
 	JWT    JWTConfig
 	Crypto CryptoConfig
+	LLM    LLMConfig
+}
+
+// LLMConfig LLM配置
+type LLMConfig struct {
+	APIKey     string
+	ModelName  string
+	APIBaseURL string
 }
 
 // DBConfig 数据库配置
@@ -41,6 +51,9 @@ type CryptoConfig struct {
 
 // LoadConfig 从环境变量加载配置
 func LoadConfig() (*Config, error) {
+	// 加载.env文件，忽略不存在的错误
+	_ = godotenv.Load()
+	
 	expireHour, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
 
 	return &Config{
@@ -61,6 +74,11 @@ func LoadConfig() (*Config, error) {
 		},
 		Crypto: CryptoConfig{
 			APIKeyEncryptionKey: getEnv("API_KEY_ENCRYPTION_KEY", "your-32-byte-encryption-key"),
+		},
+		LLM: LLMConfig{
+			APIKey:     getEnv("LLM_API_KEY", ""),
+			ModelName:  getEnv("LLM_MODEL_NAME", "qwen-plus"),
+			APIBaseURL: getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
 		},
 	}, nil
 }

@@ -3,8 +3,8 @@ package http
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"assistant-qisumi/internal/auth"
+	"github.com/gin-gonic/gin"
 )
 
 // SettingsHandler 处理用户设置相关请求

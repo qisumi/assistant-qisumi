@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"assistant-qisumi/internal/agent"
 	"assistant-qisumi/internal/auth"
 	"assistant-qisumi/internal/config"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
+	"github.com/gin-gonic/gin"
 )
 
 // Server HTTP服务器
 type Server struct {
-	engine   *gin.Engine
-	db       *sql.DB
-	cfg      config.HTTPConfig
-	jwtCfg   config.JWTConfig
+	engine    *gin.Engine
+	db        *sql.DB
+	cfg       config.HTTPConfig
+	jwtCfg    config.JWTConfig
 	cryptoCfg config.CryptoConfig
 }
 
@@ -28,10 +28,10 @@ func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.
 	engine := gin.Default()
 
 	s := &Server{
-		engine:   engine,
-		db:       db,
-		cfg:      cfg,
-		jwtCfg:   jwtCfg,
+		engine:    engine,
+		db:        db,
+		cfg:       cfg,
+		jwtCfg:    jwtCfg,
 		cryptoCfg: cryptoCfg,
 	}
 
@@ -69,8 +69,9 @@ func (s *Server) setupRoutes() {
 		plannerAgent := agent.NewPlannerAgent(llmClient)
 		summarizerAgent := agent.NewSummarizerAgent(llmClient)
 		globalAgent := agent.NewGlobalAgent(llmClient)
-		agents := []agent.Agent{executorAgent, plannerAgent, summarizerAgent, globalAgent}
-		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, s.db)
+		taskCreationAgent := agent.NewTaskCreationAgent(llmClient)
+		agents := []agent.Agent{executorAgent, plannerAgent, summarizerAgent, globalAgent, taskCreationAgent}
+		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, s.db, llmClient)
 
 		// 初始化处理器
 		authHandler := NewAuthHandler(authSvc)

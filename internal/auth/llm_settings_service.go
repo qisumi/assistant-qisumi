@@ -33,7 +33,7 @@ type LLMSettingRequest struct {
 // NewLLMSettingService 创建新的用户LLM配置服务
 func NewLLMSettingService(repo *LLMSettingRepository, encryptionKey string) *LLMSettingService {
 	return &LLMSettingService{
-		repo:        repo,
+		repo:          repo,
 		encryptionKey: []byte(encryptionKey),
 	}
 }

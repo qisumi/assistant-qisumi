@@ -1,6 +1,10 @@
 package agent
 
 import (
+	"context"
+	"encoding/json"
+	"time"
+
 	"assistant-qisumi/internal/llm"
 )
 
@@ -15,11 +19,92 @@ func NewSummarizerAgent(llmClient llm.Client) *SummarizerAgent {
 func (a *SummarizerAgent) Name() string { return "summarizer" }
 
 func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
-	// TODO: 构造 messages + tools 调用 LLM
-	// TODO: 处理 LLM 响应，生成 assistant 回复文本
-	// TODO: 生成对任务的结构化 patch
+	// 1. 构造 messages 调用 LLM
+	messages := []llm.Message{
+		{
+			Role: "system",
+			Content: `你是一个任务总结助手（Summarizer Agent）。
+
+你收到的是：
+- 当前任务的结构化信息（task 和 steps）
+- 该任务的最近若干条对话消息
+
+你的职责：
+1. 总结这个任务的当前状态，包括：
+   - 总共有多少个步骤，已完成/未完成数量
+   - 关键的完成里程碑
+   - 是否即将到期或已经逾期
+2. 总结最近的对话，看有没有：
+   - 用户已经做了什么决策
+   - AI 之前给过的建议（可以简要复述）
+3. 给出简洁的自然语言反馈，可以包含：
+   - 任务进度概览
+   - 一两条下一步行动建议
+
+注意：
+- 不需要调用任何工具，也不修改任务状态。
+- 重点是「解释当前状况」而不是「重排计划」。
+- 输出语言尽量简洁友好，避免啰嗦。`,
+		},
+	}
+
+	// 添加当前任务状态信息
+	if req.Task != nil {
+		if taskJSON, err := json.Marshal(req.Task); err == nil {
+			messages = append(messages, llm.Message{
+				Role:    "system",
+				Content: "当前任务状态（只读 JSON）：\n" + string(taskJSON),
+			})
+		}
+	}
+
+	// 添加当前时间信息
+	messages = append(messages, llm.Message{
+		Role:    "system",
+		Content: "当前时间 now: " + req.Now.Format(time.RFC3339),
+	})
+
+	// 添加历史消息
+	for _, msg := range req.Messages {
+		messages = append(messages, llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	// 添加当前用户输入
+	messages = append(messages, llm.Message{
+		Role:    "user",
+		Content: req.UserInput,
+	})
+
+	// SummarizerAgent 不需要工具，只做总结
+	tools := []llm.Tool{}
+
+	// 构造Chat请求
+	chatReq := llm.ChatRequest{
+		Model:      req.LLMConfig.Model,
+		Messages:   messages,
+		Tools:      tools,
+		ToolChoice: "none", // 明确不需要工具调用
+	}
+
+	// 调用LLM
+	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. 处理 LLM 响应，生成 assistant 回复文本
+	var assistantMessage string
+
+	if len(resp.Choices) > 0 {
+		choice := resp.Choices[0]
+		assistantMessage = choice.Message.Content
+	}
+
 	return &AgentResponse{
-		AssistantMessage: "TODO: summarizer agent reply",
-		TaskPatches:      nil,
+		AssistantMessage: assistantMessage,
+		TaskPatches:      []TaskPatch{}, // SummarizerAgent 不产生 TaskPatches
 	}, nil
 }

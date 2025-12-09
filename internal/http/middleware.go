@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"assistant-qisumi/internal/auth"
+	"github.com/gin-gonic/gin"
 )
 
 func AuthMiddleware(jwtMgr *auth.JWTManager) gin.HandlerFunc {

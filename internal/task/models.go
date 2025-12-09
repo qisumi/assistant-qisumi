@@ -29,3 +29,14 @@ type Step struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
+
+type Dependency struct {
+	ID                uint64    `json:"id"`
+	PredecessorTaskID uint64    `json:"predecessor_task_id"`
+	PredecessorStepID *uint64   `json:"predecessor_step_id,omitempty"`
+	SuccessorTaskID   uint64    `json:"successor_task_id"`
+	SuccessorStepID   *uint64   `json:"successor_step_id,omitempty"`
+	DependencyCondition string    `json:"condition"` // task_done, step_done
+	Action            string    `json:"action"`    // unlock_step, set_task_todo, notify_only
+	CreatedAt         time.Time `json:"created_at"`
+}

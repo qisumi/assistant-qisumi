@@ -3,8 +3,8 @@ package http
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"assistant-qisumi/internal/auth"
+	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
