@@ -7,9 +7,10 @@ import (
 
 // Config 应用程序配置
 type Config struct {
-	DB   DBConfig
-	HTTP HTTPConfig
-	JWT  JWTConfig
+	DB     DBConfig
+	HTTP   HTTPConfig
+	JWT    JWTConfig
+	Crypto CryptoConfig
 }
 
 // DBConfig 数据库配置
@@ -33,6 +34,11 @@ type JWTConfig struct {
 	ExpireHour int
 }
 
+// CryptoConfig 加密配置
+type CryptoConfig struct {
+	APIKeyEncryptionKey string
+}
+
 // LoadConfig 从环境变量加载配置
 func LoadConfig() (*Config, error) {
 	expireHour, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
@@ -52,6 +58,9 @@ func LoadConfig() (*Config, error) {
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", "your-secret-key"),
 			ExpireHour: expireHour,
+		},
+		Crypto: CryptoConfig{
+			APIKeyEncryptionKey: getEnv("API_KEY_ENCRYPTION_KEY", "your-32-byte-encryption-key"),
 		},
 	}, nil
 }

@@ -23,7 +23,7 @@ func main() {
 	defer db.Close()
 
 	// 初始化HTTP服务器
-	server := http.NewServer(cfg.HTTP, db)
+	server := http.NewServer(cfg.HTTP, cfg.JWT, cfg.Crypto, db)
 
 	// 启动服务器
 	log.Printf("Server starting on %s:%s", cfg.HTTP.Host, cfg.HTTP.Port)
