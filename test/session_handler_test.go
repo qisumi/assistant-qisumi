@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -91,7 +92,7 @@ func TestSessionHandler(t *testing.T) {
 	handler.RegisterRoutes(authGroup)
 
 	// Setup LLM settings for user 1
-	llmSettingSvc.UpdateLLMSetting(nil, 1, auth.LLMSettingRequest{
+	llmSettingSvc.UpdateLLMSetting(context.TODO(), 1, auth.LLMSettingRequest{
 		BaseURL: "https://api.openai.com/v1",
 		APIKey:  "sk-test",
 		Model:   "gpt-4",

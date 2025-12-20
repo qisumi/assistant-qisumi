@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -94,7 +95,7 @@ func TestAuthHandler_Login(t *testing.T) {
 	handler.RegisterRoutes(api.Group("/auth"))
 
 	// Pre-register a user
-	svc.Register(nil, "test@example.com", "password123")
+	svc.Register(context.TODO(), "test@example.com", "password123")
 
 	t.Run("successful login", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.LoginReq{
