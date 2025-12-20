@@ -126,8 +126,13 @@ func (r *Repository) AddDependencies(ctx context.Context, dependencies []TaskDep
 
 // MarkTasksFocusToday 标记任务为今日重点
 func (r *Repository) MarkTasksFocusToday(ctx context.Context, userID uint64, taskIDs []uint64) error {
-	// TODO: 实现标记今日重点任务的逻辑
-	return nil
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&Task{}).
+		Where("id IN ? AND user_id = ?", taskIDs, userID).
+		Update("is_focus_today", true).Error
 }
 
 // 把 UpdateTaskFields 转成 GORM Updates 使用s的 map
@@ -145,6 +150,9 @@ func buildTaskUpdateMap(fields UpdateTaskFields) (map[string]any, error) {
 	}
 	if fields.Priority != nil {
 		updates["priority"] = *fields.Priority
+	}
+	if fields.IsFocusToday != nil {
+		updates["is_focus_today"] = *fields.IsFocusToday
 	}
 	if fields.DueAt != nil {
 		if *fields.DueAt == "" {

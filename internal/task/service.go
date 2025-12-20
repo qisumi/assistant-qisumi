@@ -82,3 +82,23 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 func (s *Service) ListTasks(ctx context.Context, userID uint64) ([]Task, error) {
 	return s.repo.ListTasks(ctx, userID)
 }
+
+// GetTask 获取任务详情
+func (s *Service) GetTask(ctx context.Context, userID, taskID uint64) (*Task, error) {
+	return s.repo.GetTaskWithSteps(ctx, userID, taskID)
+}
+
+// UpdateTask 更新任务
+func (s *Service) UpdateTask(ctx context.Context, userID, taskID uint64, fields UpdateTaskFields) error {
+	return s.repo.ApplyUpdateTaskFields(ctx, userID, taskID, fields)
+}
+
+// UpdateStep 更新步骤
+func (s *Service) UpdateStep(ctx context.Context, userID, taskID, stepID uint64, fields UpdateStepFields) error {
+	return s.repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields)
+}
+
+// CreateTask 创建任务
+func (s *Service) CreateTask(ctx context.Context, t *Task) error {
+	return s.repo.InsertTaskWithSteps(ctx, t)
+}

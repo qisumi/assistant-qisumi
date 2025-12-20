@@ -3,16 +3,17 @@ package task
 import "time"
 
 type Task struct {
-	ID          uint64     `gorm:"primaryKey;column:id" json:"id"`
-	UserID      uint64     `gorm:"column:user_id;not null" json:"user_id"`
-	Title       string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
-	Description string     `gorm:"column:description;type:text" json:"description"`
-	Status      string     `gorm:"column:status;type:enum('todo','in_progress','done','cancelled');not null;default:'todo'" json:"status"`
-	Priority    string     `gorm:"column:priority;type:enum('low','medium','high');default:'medium'" json:"priority"`
-	DueAt       *time.Time `gorm:"column:due_at" json:"due_at,omitempty"`
-	CreatedFrom string     `gorm:"column:created_from;type:text" json:"created_from,omitempty"`
-	CreatedAt   time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
+	ID           uint64     `gorm:"primaryKey;column:id" json:"id"`
+	UserID       uint64     `gorm:"column:user_id;not null" json:"user_id"`
+	Title        string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
+	Description  string     `gorm:"column:description;type:text" json:"description"`
+	Status       string     `gorm:"column:status;type:enum('todo','in_progress','done','cancelled');not null;default:'todo'" json:"status"`
+	Priority     string     `gorm:"column:priority;type:enum('low','medium','high');default:'medium'" json:"priority"`
+	IsFocusToday bool       `gorm:"column:is_focus_today;default:false" json:"is_focus_today"`
+	DueAt        *time.Time `gorm:"column:due_at" json:"due_at,omitempty"`
+	CreatedFrom  string     `gorm:"column:created_from;type:text" json:"created_from,omitempty"`
+	CreatedAt    time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 
 	Steps []TaskStep `gorm:"foreignKey:TaskID" json:"steps,omitempty"`
 }
@@ -54,11 +55,12 @@ func (TaskDependency) TableName() string { return "task_dependencies" }
 // --- Patch/Update related structs ---
 
 type UpdateTaskFields struct {
-	Title       *string `json:"title,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Status      *string `json:"status,omitempty"`   // "todo" | "in_progress" | "done" | "cancelled"
-	Priority    *string `json:"priority,omitempty"` // "low" | "medium" | "high"
-	DueAt       *string `json:"due_at,omitempty"`   // ISO 8601
+	Title        *string `json:"title,omitempty"`
+	Description  *string `json:"description,omitempty"`
+	Status       *string `json:"status,omitempty"`   // "todo" | "in_progress" | "done" | "cancelled"
+	Priority     *string `json:"priority,omitempty"` // "low" | "medium" | "high"
+	IsFocusToday *bool   `json:"is_focus_today,omitempty"`
+	DueAt        *string `json:"due_at,omitempty"` // ISO 8601
 }
 
 type UpdateStepFields struct {

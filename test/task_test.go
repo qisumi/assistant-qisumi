@@ -30,6 +30,11 @@ func TestTaskRepository(t *testing.T) {
 		t.Fatalf("Failed to init GORM: %v", err)
 	}
 
+	// 执行自动迁移
+	if err := db.AutoMigrate(gormDB); err != nil {
+		t.Fatalf("Failed to auto migrate: %v", err)
+	}
+
 	// 创建测试用户
 	if err := SetupTestUser(dbConn); err != nil {
 		t.Fatalf("Failed to setup test user: %v", err)
@@ -96,13 +101,30 @@ func TestTaskRepository(t *testing.T) {
 		t.Fatalf("Expected 2 steps, got %d", len(retrievedTask.Steps))
 	}
 
-	// 测试3：更新任务
-	t.Log("Test 3: Updating Task")
+	// 测试3：标记今日重点
+	t.Log("Test 3: Marking Tasks Focus Today")
+	if err := taskRepo.MarkTasksFocusToday(context.Background(), userID, []uint64{testTask.ID}); err != nil {
+		t.Fatalf("Failed to mark task focus today: %v", err)
+	}
 
-	// 更新任务标题
+	// 验证标记结果
+	retrievedTask, err = taskRepo.GetTaskWithSteps(context.Background(), userID, testTask.ID)
+	if err != nil {
+		t.Fatalf("Failed to get task after marking focus today: %v", err)
+	}
+	if !retrievedTask.IsFocusToday {
+		t.Fatalf("Expected task to be focus today, but it's not")
+	}
+
+	// 测试4：更新任务
+	t.Log("Test 4: Updating Task")
+
+	// 更新任务标题和取消今日重点
 	newTitle := "Updated Test Task"
+	isFocusFalse := false
 	if err := taskRepo.ApplyUpdateTaskFields(context.Background(), userID, testTask.ID, task.UpdateTaskFields{
-		Title: &newTitle,
+		Title:        &newTitle,
+		IsFocusToday: &isFocusFalse,
 	}); err != nil {
 		t.Fatalf("Failed to update task: %v", err)
 	}
@@ -115,10 +137,13 @@ func TestTaskRepository(t *testing.T) {
 	if updatedTask.Title != newTitle {
 		t.Fatalf("Task title mismatch: expected %s, got %s", newTitle, updatedTask.Title)
 	}
+	if updatedTask.IsFocusToday {
+		t.Fatalf("Expected task to NOT be focus today, but it is")
+	}
 	t.Logf("Task updated successfully: new title is %s", updatedTask.Title)
 
-	// 测试4：更新步骤
-	t.Log("Test 4: Updating Step")
+	// 测试5：更新步骤
+	t.Log("Test 5: Updating Step")
 
 	// 更新步骤1的状态
 	statusDone := "done"
@@ -138,8 +163,8 @@ func TestTaskRepository(t *testing.T) {
 	}
 	t.Logf("Step updated successfully: step 0 status is %s", updatedTask2.Steps[0].Status)
 
-	// 测试5：添加新步骤
-	t.Log("Test 5: Adding New Step")
+	// 测试6：添加新步骤
+	t.Log("Test 6: Adding New Step")
 
 	// 添加新步骤
 	newStep := task.TaskStep{
@@ -163,8 +188,8 @@ func TestTaskRepository(t *testing.T) {
 	}
 	t.Logf("New step added successfully: total steps now %d", len(updatedTask3.Steps))
 
-	// 测试6：获取任务列表
-	t.Log("Test 6: Getting Task List")
+	// 测试7：获取任务列表
+	t.Log("Test 7: Getting Task List")
 
 	// 获取任务列表
 	tasks, err := taskRepo.ListTasks(context.Background(), userID)

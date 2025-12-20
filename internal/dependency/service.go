@@ -2,6 +2,7 @@ package dependency
 
 import (
 	"context"
+	"fmt"
 
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
@@ -49,6 +50,20 @@ func (s *Service) OnTaskOrStepDone(
 			return nil
 		}
 
+		// 提前获取前置节点名称，用于通知
+		predecessorName := ""
+		if predecessorStepID != nil {
+			var step task.TaskStep
+			if err := tx.First(&step, *predecessorStepID).Error; err == nil {
+				predecessorName = "步骤「" + step.Title + "」"
+			}
+		} else {
+			var t task.Task
+			if err := tx.First(&t, predecessorTaskID).Error; err == nil {
+				predecessorName = "任务「" + t.Title + "」"
+			}
+		}
+
 		// 针对每条依赖执行对应动作
 		for _, d := range deps {
 			switch d.Action {
@@ -73,7 +88,19 @@ func (s *Service) OnTaskOrStepDone(
 				}
 
 			case "notify_only":
-				// TODO: 写入系统消息
+				var successorTask task.Task
+				if err := tx.First(&successorTask, d.SuccessorTaskID).Error; err != nil {
+					continue
+				}
+
+				content := fmt.Sprintf("系统通知：%s已完成，触发了对任务「%s」的通知。", predecessorName, successorTask.Title)
+				if predecessorName == "" {
+					content = fmt.Sprintf("系统通知：相关依赖已完成，触发了对任务「%s」的通知。", successorTask.Title)
+				}
+
+				if err := s.sessionRepo.WithTx(tx).CreateSystemMessageForTask(ctx, successorTask.UserID, d.SuccessorTaskID, content); err != nil {
+					return err
+				}
 			}
 		}
 
