@@ -43,7 +43,7 @@ func main() {
 	defer sqlDB.Close()
 
 	// 初始化HTTP服务器
-	server := http.NewServer(cfg.HTTP, cfg.JWT, cfg.Crypto, gormDB)
+	server := http.NewServer(cfg.HTTP, cfg.JWT, cfg.Crypto, gormDB, nil)
 
 	// 启动服务器
 	log.Printf("Server starting on %s:%s", cfg.HTTP.Host, cfg.HTTP.Port)

@@ -7,8 +7,8 @@ type Task struct {
 	UserID       uint64     `gorm:"column:user_id;not null" json:"user_id"`
 	Title        string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
 	Description  string     `gorm:"column:description;type:text" json:"description"`
-	Status       string     `gorm:"column:status;type:enum('todo','in_progress','done','cancelled');not null;default:'todo'" json:"status"`
-	Priority     string     `gorm:"column:priority;type:enum('low','medium','high');default:'medium'" json:"priority"`
+	Status       string     `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
+	Priority     string     `gorm:"column:priority;type:varchar(20);default:'medium'" json:"priority"`
 	IsFocusToday bool       `gorm:"column:is_focus_today;default:false" json:"is_focus_today"`
 	DueAt        *time.Time `gorm:"column:due_at" json:"due_at,omitempty"`
 	CreatedFrom  string     `gorm:"column:created_from;type:text" json:"created_from,omitempty"`
@@ -26,7 +26,7 @@ type TaskStep struct {
 	OrderIndex     int        `gorm:"column:order_index;not null;default:0" json:"order_index"`
 	Title          string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
 	Detail         string     `gorm:"column:detail;type:text" json:"detail"`
-	Status         string     `gorm:"column:status;type:enum('locked','todo','in_progress','done','blocked');not null;default:'todo'" json:"status"`
+	Status         string     `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
 	BlockingReason string     `gorm:"column:blocking_reason;type:text" json:"blocking_reason"`
 	EstimateMin    *int       `gorm:"column:estimate_minutes" json:"estimate_minutes,omitempty"`
 	PlannedStart   *time.Time `gorm:"column:planned_start" json:"planned_start,omitempty"`
@@ -45,8 +45,8 @@ type TaskDependency struct {
 	SuccessorTaskID   uint64  `gorm:"column:successor_task_id;not null" json:"successor_task_id"`
 	SuccessorStepID   *uint64 `gorm:"column:successor_step_id" json:"successor_step_id,omitempty"`
 
-	Condition string    `gorm:"column:dependency_condition;type:enum('task_done','step_done');not null" json:"condition"`
-	Action    string    `gorm:"column:action;type:enum('unlock_step','set_task_todo','notify_only');not null;default:'unlock_step'" json:"action"`
+	Condition string    `gorm:"column:dependency_condition;type:varchar(20);not null" json:"condition"`
+	Action    string    `gorm:"column:action;type:varchar(20);not null;default:'unlock_step'" json:"action"`
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 

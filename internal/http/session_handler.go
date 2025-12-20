@@ -27,7 +27,7 @@ func (h *SessionHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/sessions/:id/messages", h.postMessage)
 }
 
-type postMessageReq struct {
+type PostMessageReq struct {
 	Content string `json:"content" binding:"required"`
 }
 
@@ -40,7 +40,7 @@ func (h *SessionHandler) postMessage(c *gin.Context) {
 		return
 	}
 
-	var req postMessageReq
+	var req PostMessageReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

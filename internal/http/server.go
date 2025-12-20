@@ -23,11 +23,16 @@ type Server struct {
 	cfg       config.HTTPConfig
 	jwtCfg    config.JWTConfig
 	cryptoCfg config.CryptoConfig
+	llmClient llm.Client
 }
 
 // NewServer 创建新的HTTP服务器
-func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, db *gorm.DB) *Server {
+func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, db *gorm.DB, llmClient llm.Client) *Server {
 	engine := gin.Default()
+
+	if llmClient == nil {
+		llmClient = llm.NewHTTPClient()
+	}
 
 	s := &Server{
 		engine:    engine,
@@ -35,6 +40,7 @@ func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.
 		cfg:       cfg,
 		jwtCfg:    jwtCfg,
 		cryptoCfg: cryptoCfg,
+		llmClient: llmClient,
 	}
 
 	// 注册路由
@@ -60,8 +66,7 @@ func (s *Server) setupRoutes() {
 		llmSettingService := auth.NewLLMSettingService(llmSettingRepo, s.cryptoCfg.APIKeyEncryptionKey)
 
 		taskRepo := task.NewRepository(s.db)
-		llmClient := llm.NewHTTPClient()
-		taskSvc := task.NewService(taskRepo, llmClient)
+		taskSvc := task.NewService(taskRepo, s.llmClient)
 
 		sessionRepo := session.NewRepository(s.db)
 
@@ -70,13 +75,13 @@ func (s *Server) setupRoutes() {
 
 		// Agents
 		router := agent.NewSimpleRouter()
-		executorAgent := agent.NewExecutorAgent(llmClient)
-		plannerAgent := agent.NewPlannerAgent(llmClient)
-		summarizerAgent := agent.NewSummarizerAgent(llmClient)
-		globalAgent := agent.NewGlobalAgent(llmClient)
-		taskCreationAgent := agent.NewTaskCreationAgent(llmClient)
+		executorAgent := agent.NewExecutorAgent(s.llmClient)
+		plannerAgent := agent.NewPlannerAgent(s.llmClient)
+		summarizerAgent := agent.NewSummarizerAgent(s.llmClient)
+		globalAgent := agent.NewGlobalAgent(s.llmClient)
+		taskCreationAgent := agent.NewTaskCreationAgent(s.llmClient)
 		agents := []agent.Agent{executorAgent, plannerAgent, summarizerAgent, globalAgent, taskCreationAgent}
-		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, dependencySvc, s.db, llmClient)
+		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, dependencySvc, s.db, s.llmClient)
 
 		// 初始化处理器
 		authHandler := NewAuthHandler(authSvc)
@@ -113,4 +118,9 @@ func (s *Server) healthCheck(c *gin.Context) {
 func (s *Server) Start() error {
 	addr := fmt.Sprintf("%s:%s", s.cfg.Host, s.cfg.Port)
 	return s.engine.Run(addr)
+}
+
+// ServeHTTP 实现 http.Handler 接口，方便测试
+func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	s.engine.ServeHTTP(w, req)
 }

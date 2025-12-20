@@ -9,10 +9,10 @@ import (
 	"assistant-qisumi/internal/session"
 )
 
-// MockLLMClient 用于测试的LLM客户端模拟
-type MockLLMClient struct{}
+// MockAgentLLMClient 用于测试的LLM客户端模拟
+type MockAgentLLMClient struct{}
 
-func (m *MockLLMClient) Chat(ctx context.Context, cfg llm.Config, req llm.ChatRequest) (*llm.ChatResponse, error) {
+func (m *MockAgentLLMClient) Chat(ctx context.Context, cfg llm.Config, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	return &llm.ChatResponse{
 		Choices: []struct {
 			Message      llm.ChatMessage `json:"message"`
@@ -84,7 +84,7 @@ func TestRouterAgent(t *testing.T) {
 // TestAgentServiceCreation 测试Agent服务创建
 func TestAgentServiceCreation(t *testing.T) {
 	// 创建LLM客户端
-	llmClient := &MockLLMClient{}
+	llmClient := &MockAgentLLMClient{}
 
 	// 创建Agent
 	executorAgent := agent.NewExecutorAgent(llmClient)

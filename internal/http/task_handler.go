@@ -31,13 +31,13 @@ func (h *TaskHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.PATCH("/tasks/:id", h.patchTask)
 }
 
-type createFromTextReq struct {
+type CreateFromTextReq struct {
 	RawText string `json:"raw_text" binding:"required"`
 }
 
 func (h *TaskHandler) createFromText(c *gin.Context) {
 	userID := GetUserID(c)
-	var req createFromTextReq
+	var req CreateFromTextReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

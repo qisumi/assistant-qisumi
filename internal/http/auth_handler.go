@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"assistant-qisumi/internal/auth"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,13 +21,13 @@ func (h *AuthHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/login", h.login)
 }
 
-type registerReq struct {
+type RegisterReq struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
 func (h *AuthHandler) register(c *gin.Context) {
-	var req registerReq
+	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -38,13 +39,13 @@ func (h *AuthHandler) register(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-type loginReq struct {
+type LoginReq struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 
 func (h *AuthHandler) login(c *gin.Context) {
-	var req loginReq
+	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
