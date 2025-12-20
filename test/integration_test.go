@@ -25,13 +25,18 @@ func TestFullTaskWorkflow(t *testing.T) {
 	}
 	defer dbConn.Close()
 
+	gormDB, err := db.InitGORM(dbConn, cfg.DB.Type)
+	if err != nil {
+		t.Fatalf("Failed to init GORM: %v", err)
+	}
+
 	// 创建测试用户
 	if err := SetupTestUser(dbConn); err != nil {
 		t.Fatalf("Failed to setup test user: %v", err)
 	}
 
 	// 创建任务仓库
-	taskRepo := task.NewRepository(dbConn)
+	taskRepo := task.NewRepository(gormDB)
 
 	// 创建LLM客户端
 	llmClient := llm.NewHTTPClient()
@@ -44,7 +49,7 @@ func TestFullTaskWorkflow(t *testing.T) {
 
 	// 阶段1：创建任务和步骤
 	t.Log("=== Stage 1: Creating Task and Steps ===")
-	
+
 	// 创建测试任务
 	dueAt := time.Now().Add(7 * 24 * time.Hour)
 	testTask := task.Task{
@@ -54,7 +59,7 @@ func TestFullTaskWorkflow(t *testing.T) {
 		Status:      "todo",
 		Priority:    "high",
 		DueAt:       &dueAt,
-		Steps: []task.Step{
+		Steps: []task.TaskStep{
 			{
 				TaskID:     0, // 会被自动设置
 				OrderIndex: 0,
@@ -102,8 +107,9 @@ func TestFullTaskWorkflow(t *testing.T) {
 	t.Log("=== Stage 3: Updating Step Status ===")
 
 	// 更新步骤1的状态为done
-	if err := taskRepo.UpdateStep(context.Background(), nil, testTask.ID, retrievedTask.Steps[0].ID, map[string]interface{}{
-		"status": "done",
+	statusDone := "done"
+	if err := taskRepo.ApplyUpdateStepFields(context.Background(), userID, testTask.ID, retrievedTask.Steps[0].ID, task.UpdateStepFields{
+		Status: &statusDone,
 	}); err != nil {
 		t.Fatalf("Failed to update step status: %v", err)
 	}
@@ -122,8 +128,9 @@ func TestFullTaskWorkflow(t *testing.T) {
 	t.Log("=== Stage 4: Updating Task Status ===")
 
 	// 更新任务状态为in_progress
-	if err := taskRepo.UpdateTask(context.Background(), nil, testTask.ID, map[string]interface{}{
-		"status": "in_progress",
+	statusInProgress := "in_progress"
+	if err := taskRepo.ApplyUpdateTaskFields(context.Background(), userID, testTask.ID, task.UpdateTaskFields{
+		Status: &statusInProgress,
 	}); err != nil {
 		t.Fatalf("Failed to update task status: %v", err)
 	}
@@ -142,14 +149,14 @@ func TestFullTaskWorkflow(t *testing.T) {
 	t.Log("=== Stage 5: Adding New Step ===")
 
 	// 添加新步骤
-	newStep := task.Step{
+	newStep := task.TaskStep{
 		TaskID:     testTask.ID,
 		OrderIndex: 3,
 		Title:      "Step 4",
 		Detail:     "Fourth step of the task",
 		Status:     "todo",
 	}
-	if err := taskRepo.AddStep(context.Background(), nil, &newStep); err != nil {
+	if err := taskRepo.AddStep(context.Background(), &newStep); err != nil {
 		t.Fatalf("Failed to add new step: %v", err)
 	}
 	t.Logf("Added new step: %+v", newStep)

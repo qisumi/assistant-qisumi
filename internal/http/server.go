@@ -1,30 +1,32 @@
 package http
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 
 	"assistant-qisumi/internal/agent"
 	"assistant-qisumi/internal/auth"
 	"assistant-qisumi/internal/config"
+	"assistant-qisumi/internal/dependency"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
+
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // Server HTTP服务器
 type Server struct {
 	engine    *gin.Engine
-	db        *sql.DB
+	db        *gorm.DB
 	cfg       config.HTTPConfig
 	jwtCfg    config.JWTConfig
 	cryptoCfg config.CryptoConfig
 }
 
 // NewServer 创建新的HTTP服务器
-func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, db *sql.DB) *Server {
+func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, db *gorm.DB) *Server {
 	engine := gin.Default()
 
 	s := &Server{
@@ -63,6 +65,9 @@ func (s *Server) setupRoutes() {
 
 		sessionRepo := session.NewRepository(s.db)
 
+		// Dependency Service
+		dependencySvc := dependency.NewService(s.db, taskRepo, sessionRepo)
+
 		// Agents
 		router := agent.NewSimpleRouter()
 		executorAgent := agent.NewExecutorAgent(llmClient)
@@ -71,7 +76,7 @@ func (s *Server) setupRoutes() {
 		globalAgent := agent.NewGlobalAgent(llmClient)
 		taskCreationAgent := agent.NewTaskCreationAgent(llmClient)
 		agents := []agent.Agent{executorAgent, plannerAgent, summarizerAgent, globalAgent, taskCreationAgent}
-		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, s.db, llmClient)
+		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, dependencySvc, s.db, llmClient)
 
 		// 初始化处理器
 		authHandler := NewAuthHandler(authSvc)

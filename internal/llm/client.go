@@ -37,9 +37,9 @@ type Tool struct {
 }
 
 type ToolFunction struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
 }
 
 type ToolCall struct {

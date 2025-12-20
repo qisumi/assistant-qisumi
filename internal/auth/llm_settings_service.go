@@ -129,7 +129,7 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 
 	if existingSetting == nil {
 		// 创建新配置
-		setting := &LLMSetting{
+		setting := &UserLLMSetting{
 			UserID:    userID,
 			BaseURL:   req.BaseURL,
 			APIKeyEnc: encryptedKey,

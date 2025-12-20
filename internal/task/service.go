@@ -48,7 +48,7 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 		Description string     `json:"description"`
 		DueAt       *time.Time `json:"due_at,omitempty"`
 		Priority    string     `json:"priority"`
-		Steps       []Step     `json:"steps"`
+		Steps       []TaskStep `json:"steps"`
 	}
 
 	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {

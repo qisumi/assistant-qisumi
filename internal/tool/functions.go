@@ -166,7 +166,7 @@ func NewToolError(message string) *ToolError {
 type TaskFieldUpdater func(task *task.Task, fields map[string]interface{}) error
 
 // StepFieldUpdater 更新步骤字段
-type StepFieldUpdater func(step *task.Step, fields map[string]interface{}) error
+type StepFieldUpdater func(step *task.TaskStep, fields map[string]interface{}) error
 
 // ApplyTaskFields 应用任务字段更新
 func ApplyTaskFields(task *task.Task, fields map[string]interface{}) error {
@@ -202,7 +202,7 @@ func ApplyTaskFields(task *task.Task, fields map[string]interface{}) error {
 }
 
 // ApplyStepFields 应用步骤字段更新
-func ApplyStepFields(step *task.Step, fields map[string]interface{}) error {
+func ApplyStepFields(step *task.TaskStep, fields map[string]interface{}) error {
 	for key, value := range fields {
 		switch key {
 		case "title":

@@ -25,11 +25,13 @@ type LLMConfig struct {
 
 // DBConfig 数据库配置
 type DBConfig struct {
+	Type     string // mysql or sqlite
 	Host     string
 	Port     string
 	Username string
 	Password string
 	Database string
+	FilePath string // for sqlite
 }
 
 // HTTPConfig HTTP服务器配置
@@ -53,16 +55,18 @@ type CryptoConfig struct {
 func LoadConfig() (*Config, error) {
 	// 加载.env文件，忽略不存在的错误
 	_ = godotenv.Load()
-	
+
 	expireHour, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
 
 	return &Config{
 		DB: DBConfig{
+			Type:     getEnv("DB_TYPE", "mysql"),
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "3306"),
 			Username: getEnv("DB_USERNAME", "root"),
 			Password: getEnv("DB_PASSWORD", ""),
 			Database: getEnv("DB_DATABASE", "assistant_qisumi"),
+			FilePath: getEnv("DB_FILE_PATH", "assistant.db"),
 		},
 		HTTP: HTTPConfig{
 			Host: getEnv("HTTP_HOST", "0.0.0.0"),

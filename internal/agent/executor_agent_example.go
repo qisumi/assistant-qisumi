@@ -34,7 +34,7 @@ func ExecutorAgentExample() {
 		Status:      "in_progress",
 		Priority:    "high",
 		DueAt:       &mockDueAt, // Mock due date
-		Steps: []task.Step{
+		Steps: []task.TaskStep{
 			{
 				ID:          12,
 				TaskID:      1,
@@ -118,9 +118,9 @@ func ExecutorAgentExample() {
 	log.Printf("Generated %d Task Patches", len(resp.TaskPatches))
 
 	for i, patch := range resp.TaskPatches {
-		log.Printf("Patch %d: Type=%s", i+1, patch.Type)
-		patchJSON, _ := json.Marshal(patch.Payload)
-		log.Printf("Patch %d: Payload=%s", i+1, string(patchJSON))
+		log.Printf("Patch %d: Kind=%s", i+1, patch.Kind)
+		patchJSON, _ := json.Marshal(patch)
+		log.Printf("Patch %d: Content=%s", i+1, string(patchJSON))
 
 		// 8. Apply the patch to the task data (in production, this would update the database)
 		applyPatchToTask(taskData, patch)
@@ -135,34 +135,30 @@ func ExecutorAgentExample() {
 
 // applyPatchToTask applies a task patch to the task data (in-memory for this example)
 func applyPatchToTask(task *task.Task, patch TaskPatch) {
-	switch patch.Type {
-	case "update_task":
-		// Update task fields
-		if fields, ok := patch.Payload["fields"].(map[string]interface{}); ok {
-			if status, ok := fields["status"].(string); ok {
-				task.Status = status
+	switch patch.Kind {
+	case PatchUpdateTask:
+		if patch.UpdateTask != nil {
+			if patch.UpdateTask.Fields.Status != nil {
+				task.Status = *patch.UpdateTask.Fields.Status
 			}
-			if title, ok := fields["title"].(string); ok {
-				task.Title = title
+			if patch.UpdateTask.Fields.Title != nil {
+				task.Title = *patch.UpdateTask.Fields.Title
 			}
 			// ... other task fields
 		}
 
-	case "update_step":
-		// Update step fields
-		if stepID, ok := patch.Payload["step_id"].(uint64); ok {
-			if fields, ok := patch.Payload["fields"].(map[string]interface{}); ok {
-				for i, step := range task.Steps {
-					if step.ID == stepID {
-						if status, ok := fields["status"].(string); ok {
-							task.Steps[i].Status = status
-						}
-						if title, ok := fields["title"].(string); ok {
-							task.Steps[i].Title = title
-						}
-						// ... other step fields
-						break
+	case PatchUpdateStep:
+		if patch.UpdateStep != nil {
+			for i, step := range task.Steps {
+				if step.ID == patch.UpdateStep.StepID {
+					if patch.UpdateStep.Fields.Status != nil {
+						task.Steps[i].Status = *patch.UpdateStep.Fields.Status
 					}
+					if patch.UpdateStep.Fields.Title != nil {
+						task.Steps[i].Title = *patch.UpdateStep.Fields.Title
+					}
+					// ... other step fields
+					break
 				}
 			}
 		}

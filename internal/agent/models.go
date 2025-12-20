@@ -18,11 +18,6 @@ type AgentRequest struct {
 	LLMConfig llm.Config
 }
 
-type TaskPatch struct {
-	Type    string                 `json:"type"`
-	Payload map[string]interface{} `json:"payload"`
-}
-
 type AgentResponse struct {
 	AssistantMessage string      `json:"assistant_message"`
 	TaskPatches      []TaskPatch `json:"task_patches"`

@@ -7,6 +7,8 @@ import (
 	"assistant-qisumi/internal/db"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/task"
+
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -24,13 +26,15 @@ func main() {
 	log.Printf("Database: %s:%s", cfg.DB.Host, cfg.DB.Port)
 
 	// 初始化数据库连接
-	db, err := db.InitDB(cfg.DB)
+	sqlDB, err := db.InitDB(cfg.DB)
+	var gormDB *gorm.DB
 	if err != nil {
 		log.Printf("Warning: Failed to connect to database: %v", err)
 		// 继续执行，测试其他功能
 	} else {
-		defer db.Close()
+		defer sqlDB.Close()
 		log.Printf("Successfully connected to database")
+		gormDB, _ = db.InitGORM(sqlDB, cfg.DB.Type)
 	}
 
 	// 测试LLM客户端配置
@@ -38,7 +42,7 @@ func main() {
 	log.Printf("LLM client initialized")
 
 	// 测试任务创建逻辑
-	taskRepo := task.NewRepository(db)
+	taskRepo := task.NewRepository(gormDB)
 	_ = task.NewService(taskRepo, llmClient)
 	log.Printf("Task service initialized")
 

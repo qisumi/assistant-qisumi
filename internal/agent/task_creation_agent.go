@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/task"
 )
 
 type TaskCreationAgent struct {
@@ -106,15 +107,31 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	}
 
 	// 4. 生成TaskPatches
+	var dueAtStr *string
+	if taskData.DueAt != nil {
+		s := taskData.DueAt.Format(time.RFC3339)
+		dueAtStr = &s
+	}
+
+	records := make([]task.NewStepRecord, 0, len(taskData.Steps))
+	for _, s := range taskData.Steps {
+		est := s.EstimateMinutes
+		records = append(records, task.NewStepRecord{
+			Title:           s.Title,
+			Detail:          s.Detail,
+			EstimateMinutes: &est,
+		})
+	}
+
 	patches := []TaskPatch{
 		{
-			Type: "CreateTask",
-			Payload: map[string]interface{}{
-				"title":       taskData.Title,
-				"description": taskData.Description,
-				"due_at":      taskData.DueAt,
-				"priority":    taskData.Priority,
-				"steps":       taskData.Steps,
+			Kind: PatchCreateTask,
+			CreateTask: &CreateTaskPatch{
+				Title:       taskData.Title,
+				Description: taskData.Description,
+				DueAt:       dueAtStr,
+				Priority:    taskData.Priority,
+				Steps:       records,
 			},
 		},
 	}

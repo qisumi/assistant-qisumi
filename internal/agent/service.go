@@ -2,12 +2,14 @@ package agent
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
+	"assistant-qisumi/internal/dependency"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
+
+	"gorm.io/gorm"
 )
 
 type Service struct {
@@ -15,7 +17,8 @@ type Service struct {
 	agents                 map[string]Agent
 	taskRepo               *task.Repository
 	sessionRepo            *session.Repository
-	db                     *sql.DB
+	dependencySvc          *dependency.Service
+	db                     *gorm.DB
 	llmClient              llm.Client
 	chatCompletionsHandler *ChatCompletionsHandler
 }
@@ -25,7 +28,8 @@ func NewService(
 	agents []Agent,
 	taskRepo *task.Repository,
 	sessionRepo *session.Repository,
-	db *sql.DB,
+	dependencySvc *dependency.Service,
+	db *gorm.DB,
 	llmClient llm.Client,
 ) *Service {
 	m := make(map[string]Agent)
@@ -45,6 +49,7 @@ func NewService(
 		agents:                 m,
 		taskRepo:               taskRepo,
 		sessionRepo:            sessionRepo,
+		dependencySvc:          dependencySvc,
 		db:                     db,
 		llmClient:              llmClient,
 		chatCompletionsHandler: chatCompletionsHandler,
@@ -99,18 +104,14 @@ func (s *Service) HandleUserMessage(
 
 	// 1. 开启事务: 应用 TaskPatches 更新 task & steps & dependencies
 	if len(resp.TaskPatches) > 0 {
-		tx, err := s.db.BeginTx(ctx, nil)
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			// 应用TaskPatches
+			if err := s.applyTaskPatches(ctx, userID, tx, resp.TaskPatches); err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-
-		// 应用TaskPatches
-		if err := s.applyTaskPatches(ctx, tx, resp.TaskPatches); err != nil {
-			return nil, err
-		}
-
-		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
 	}
@@ -130,27 +131,51 @@ func (s *Service) HandleUserMessage(
 }
 
 // applyTaskPatches 应用TaskPatches更新数据库
-func (s *Service) applyTaskPatches(ctx context.Context, tx *sql.Tx, patches []TaskPatch) error {
-	for _, patch := range patches {
-		switch patch.Type {
-		case "update_task":
-			if err := s.applyUpdateTaskPatch(ctx, tx, patch); err != nil {
+func (s *Service) applyTaskPatches(ctx context.Context, userID uint64, tx *gorm.DB, patches []TaskPatch) error {
+	for _, p := range patches {
+		switch p.Kind {
+		case PatchUpdateTask:
+			up := p.UpdateTask
+			if up == nil {
+				continue
+			}
+			if err := s.applyUpdateTaskFields(ctx, userID, tx, up.TaskID, up.Fields); err != nil {
 				return err
 			}
-		case "update_step":
-			if err := s.applyUpdateStepPatch(ctx, tx, patch); err != nil {
+
+		case PatchUpdateStep:
+			up := p.UpdateStep
+			if up == nil {
+				continue
+			}
+			if err := s.applyUpdateStepFields(ctx, userID, tx, up.TaskID, up.StepID, up.Fields); err != nil {
 				return err
 			}
-		case "add_steps":
-			if err := s.applyAddStepsPatch(ctx, tx, patch); err != nil {
+
+		case PatchAddSteps:
+			ap := p.AddSteps
+			if ap == nil {
+				continue
+			}
+			if err := s.applyInsertNewSteps(ctx, userID, tx, ap.TaskID, ap.ParentStepID, ap.StepsToInsert); err != nil {
 				return err
 			}
-		case "add_dependencies":
-			if err := s.applyAddDependenciesPatch(ctx, tx, patch); err != nil {
+
+		case PatchAddDependencies:
+			dp := p.AddDependencies
+			if dp == nil {
+				continue
+			}
+			if err := s.applyInsertDependencies(ctx, userID, tx, dp.Items); err != nil {
 				return err
 			}
-		case "mark_tasks_focus_today":
-			if err := s.applyMarkTasksFocusTodayPatch(ctx, tx, patch); err != nil {
+
+		case PatchMarkTasksFocusToday:
+			fp := p.MarkTasksFocusToday
+			if fp == nil {
+				continue
+			}
+			if err := s.applyUpdateTasksFocusToday(ctx, userID, tx, fp.TaskIDs); err != nil {
 				return err
 			}
 		}
@@ -158,201 +183,70 @@ func (s *Service) applyTaskPatches(ctx context.Context, tx *sql.Tx, patches []Ta
 	return nil
 }
 
-// applyUpdateTaskPatch 应用更新任务的TaskPatch
-func (s *Service) applyUpdateTaskPatch(ctx context.Context, tx *sql.Tx, patch TaskPatch) error {
-	taskID, ok := patch.Payload["task_id"].(uint64)
-	if !ok {
-		return nil
+func (s *Service) applyUpdateTaskFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID uint64, fields task.UpdateTaskFields) error {
+	repo := s.taskRepo.WithTx(tx)
+	if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, fields); err != nil {
+		return err
 	}
 
-	fields, ok := patch.Payload["fields"].(map[string]interface{})
-	if !ok {
-		return nil
+	// 如果状态变为 done，触发依赖处理
+	if fields.Status != nil && *fields.Status == "done" {
+		if err := s.dependencySvc.OnTaskOrStepDone(ctx, taskID, nil); err != nil {
+			return err
+		}
 	}
-
-	// 调用taskRepo的更新方法
-	return s.taskRepo.UpdateTask(ctx, tx, taskID, fields)
+	return nil
 }
 
-// applyUpdateStepPatch 应用更新步骤的TaskPatch
-func (s *Service) applyUpdateStepPatch(ctx context.Context, tx *sql.Tx, patch TaskPatch) error {
-	taskID, ok := patch.Payload["task_id"].(uint64)
-	if !ok {
-		return nil
+func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID, stepID uint64, fields task.UpdateStepFields) error {
+	repo := s.taskRepo.WithTx(tx)
+	if err := repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields); err != nil {
+		return err
 	}
 
-	stepID, ok := patch.Payload["step_id"].(uint64)
-	if !ok {
-		return nil
+	// 如果状态变为 done，触发依赖处理
+	if fields.Status != nil && *fields.Status == "done" {
+		if err := s.dependencySvc.OnTaskOrStepDone(ctx, taskID, &stepID); err != nil {
+			return err
+		}
 	}
-
-	fields, ok := patch.Payload["fields"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	// 调用taskRepo的更新步骤方法
-	return s.taskRepo.UpdateStep(ctx, tx, taskID, stepID, fields)
+	return nil
 }
 
-// applyAddStepsPatch 应用添加步骤的TaskPatch
-func (s *Service) applyAddStepsPatch(ctx context.Context, tx *sql.Tx, patch TaskPatch) error {
-	// 从payload中获取任务ID和步骤信息
-	taskID, ok := patch.Payload["task_id"].(uint64)
-	if !ok {
-		return nil
+func (s *Service) applyInsertNewSteps(ctx context.Context, userID uint64, tx *gorm.DB, taskID uint64, parentStepID *uint64, steps []task.NewStepRecord) error {
+	repo := s.taskRepo.WithTx(tx)
+	var taskSteps []task.TaskStep
+	for i, st := range steps {
+		ts := task.TaskStep{
+			TaskID:      taskID,
+			Title:       st.Title,
+			Detail:      st.Detail,
+			EstimateMin: st.EstimateMinutes,
+			OrderIndex:  i, // Simplified
+			Status:      "todo",
+		}
+		taskSteps = append(taskSteps, ts)
 	}
-
-	stepsData, ok := patch.Payload["steps"].([]interface{})
-	if !ok {
-		return nil
-	}
-
-	// 转换为task.Step类型
-	var steps []task.Step
-	for _, stepData := range stepsData {
-		stepMap, ok := stepData.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		// 解析基本字段
-		title, _ := stepMap["title"].(string)
-		detail, _ := stepMap["detail"].(string)
-		status, _ := stepMap["status"].(string)
-		if status == "" {
-			status = "todo"
-		}
-
-		// 解析估计时间
-		estimateMinutes := 30 // 默认30分钟
-		if estMin, ok := stepMap["estimate_minutes"].(float64); ok {
-			estimateMinutes = int(estMin)
-		}
-		estMinPtr := &estimateMinutes
-
-		// 解析顺序索引
-		orderIndex := 0
-		if ordIdx, ok := stepMap["order_index"].(float64); ok {
-			orderIndex = int(ordIdx)
-		}
-
-		// 解析计划时间
-		var plannedStart, plannedEnd *time.Time
-		if ps, ok := stepMap["planned_start"].(string); ok && ps != "" {
-			if t, err := time.Parse(time.RFC3339, ps); err == nil {
-				plannedStart = &t
-			}
-		}
-		if pe, ok := stepMap["planned_end"].(string); ok && pe != "" {
-			if t, err := time.Parse(time.RFC3339, pe); err == nil {
-				plannedEnd = &t
-			}
-		}
-
-		// 创建步骤对象
-		step := task.Step{
-			TaskID:       taskID,
-			OrderIndex:   orderIndex,
-			Title:        title,
-			Detail:       detail,
-			Status:       status,
-			EstimateMin:  estMinPtr,
-			PlannedStart: plannedStart,
-			PlannedEnd:   plannedEnd,
-		}
-
-		steps = append(steps, step)
-	}
-
-	// 调用taskRepo的添加步骤方法
-	return s.taskRepo.AddSteps(ctx, tx, steps)
+	return repo.AddSteps(ctx, taskSteps)
 }
 
-// applyAddDependenciesPatch 应用添加依赖的TaskPatch
-func (s *Service) applyAddDependenciesPatch(ctx context.Context, tx *sql.Tx, patch TaskPatch) error {
-	// 从payload中获取依赖项信息
-	items, ok := patch.Payload["items"].([]interface{})
-	if !ok {
-		return nil
+func (s *Service) applyInsertDependencies(ctx context.Context, userID uint64, tx *gorm.DB, items []task.DependencyItem) error {
+	repo := s.taskRepo.WithTx(tx)
+	var deps []task.TaskDependency
+	for _, it := range items {
+		deps = append(deps, task.TaskDependency{
+			PredecessorTaskID: it.PredecessorTaskID,
+			PredecessorStepID: it.PredecessorStepID,
+			SuccessorTaskID:   it.SuccessorTaskID,
+			SuccessorStepID:   it.SuccessorStepID,
+			Condition:         it.Condition,
+			Action:            it.Action,
+		})
 	}
-
-	// 转换为task.Dependency类型
-	var dependencies []task.Dependency
-	for _, itemData := range items {
-		itemMap, ok := itemData.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		// 解析前置任务/步骤ID
-		predecessorTaskID, ok := itemMap["predecessor_task_id"].(float64)
-		if !ok {
-			continue
-		}
-
-		// 解析前置步骤ID（可选）
-		var predecessorStepID *uint64
-		if psID, ok := itemMap["predecessor_step_id"].(float64); ok {
-			id := uint64(psID)
-			predecessorStepID = &id
-		}
-
-		// 解析后置任务/步骤ID
-		successorTaskID, ok := itemMap["successor_task_id"].(float64)
-		if !ok {
-			continue
-		}
-
-		// 解析后置步骤ID（可选）
-		var successorStepID *uint64
-		if ssID, ok := itemMap["successor_step_id"].(float64); ok {
-			id := uint64(ssID)
-			successorStepID = &id
-		}
-
-		// 解析条件和动作
-		condition, _ := itemMap["condition"].(string)
-		action, _ := itemMap["action"].(string)
-
-		// 创建依赖对象
-		dep := task.Dependency{
-			PredecessorTaskID:   uint64(predecessorTaskID),
-			PredecessorStepID:   predecessorStepID,
-			SuccessorTaskID:     uint64(successorTaskID),
-			SuccessorStepID:     successorStepID,
-			DependencyCondition: condition,
-			Action:              action,
-		}
-
-		dependencies = append(dependencies, dep)
-	}
-
-	// 调用taskRepo的添加依赖方法
-	return s.taskRepo.AddDependencies(ctx, tx, dependencies)
+	return repo.AddDependencies(ctx, deps)
 }
 
-// applyMarkTasksFocusTodayPatch 应用标记今日重点任务的TaskPatch
-func (s *Service) applyMarkTasksFocusTodayPatch(ctx context.Context, tx *sql.Tx, patch TaskPatch) error {
-	// 从payload中获取用户ID和任务ID列表
-	userID, ok := patch.Payload["user_id"].(uint64)
-	if !ok {
-		return nil
-	}
-
-	taskIDsData, ok := patch.Payload["task_ids"].([]interface{})
-	if !ok {
-		return nil
-	}
-
-	// 转换为[]uint64类型
-	var taskIDs []uint64
-	for _, taskIDData := range taskIDsData {
-		if taskID, ok := taskIDData.(float64); ok {
-			taskIDs = append(taskIDs, uint64(taskID))
-		}
-	}
-
-	// 调用taskRepo的标记方法
-	return s.taskRepo.MarkTasksFocusToday(ctx, tx, userID, taskIDs)
+func (s *Service) applyUpdateTasksFocusToday(ctx context.Context, userID uint64, tx *gorm.DB, taskIDs []uint64) error {
+	repo := s.taskRepo.WithTx(tx)
+	return repo.MarkTasksFocusToday(ctx, userID, taskIDs)
 }

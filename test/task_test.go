@@ -24,13 +24,19 @@ func TestTaskRepository(t *testing.T) {
 	}
 	defer dbConn.Close()
 
+	// 初始化 GORM
+	gormDB, err := db.InitGORM(dbConn, cfg.DB.Type)
+	if err != nil {
+		t.Fatalf("Failed to init GORM: %v", err)
+	}
+
 	// 创建测试用户
 	if err := SetupTestUser(dbConn); err != nil {
 		t.Fatalf("Failed to setup test user: %v", err)
 	}
 
 	// 创建任务仓库
-	taskRepo := task.NewRepository(dbConn)
+	taskRepo := task.NewRepository(gormDB)
 
 	// 测试用户ID
 	userID := TestUserInfo.ID
@@ -47,7 +53,7 @@ func TestTaskRepository(t *testing.T) {
 		Status:      "todo",
 		Priority:    "medium",
 		DueAt:       &dueAt,
-		Steps: []task.Step{
+		Steps: []task.TaskStep{
 			{
 				TaskID:     0, // 会被自动设置
 				OrderIndex: 0,
@@ -95,8 +101,8 @@ func TestTaskRepository(t *testing.T) {
 
 	// 更新任务标题
 	newTitle := "Updated Test Task"
-	if err := taskRepo.UpdateTask(context.Background(), nil, testTask.ID, map[string]interface{}{
-		"title": newTitle,
+	if err := taskRepo.ApplyUpdateTaskFields(context.Background(), userID, testTask.ID, task.UpdateTaskFields{
+		Title: &newTitle,
 	}); err != nil {
 		t.Fatalf("Failed to update task: %v", err)
 	}
@@ -115,8 +121,9 @@ func TestTaskRepository(t *testing.T) {
 	t.Log("Test 4: Updating Step")
 
 	// 更新步骤1的状态
-	if err := taskRepo.UpdateStep(context.Background(), nil, testTask.ID, retrievedTask.Steps[0].ID, map[string]interface{}{
-		"status": "done",
+	statusDone := "done"
+	if err := taskRepo.ApplyUpdateStepFields(context.Background(), userID, testTask.ID, retrievedTask.Steps[0].ID, task.UpdateStepFields{
+		Status: &statusDone,
 	}); err != nil {
 		t.Fatalf("Failed to update step: %v", err)
 	}
@@ -135,14 +142,14 @@ func TestTaskRepository(t *testing.T) {
 	t.Log("Test 5: Adding New Step")
 
 	// 添加新步骤
-	newStep := task.Step{
+	newStep := task.TaskStep{
 		TaskID:     testTask.ID,
 		OrderIndex: 2,
 		Title:      "Test Step 3",
 		Detail:     "Third step",
 		Status:     "todo",
 	}
-	if err := taskRepo.AddStep(context.Background(), nil, &newStep); err != nil {
+	if err := taskRepo.AddStep(context.Background(), &newStep); err != nil {
 		t.Fatalf("Failed to add new step: %v", err)
 	}
 
@@ -193,7 +200,8 @@ func TestTaskStepsOperations(t *testing.T) {
 	}
 
 	// 创建任务仓库
-	taskRepo := task.NewRepository(dbConn)
+	gormDB, _ := db.InitGORM(dbConn, cfg.DB.Type)
+	taskRepo := task.NewRepository(gormDB)
 
 	// 测试用户ID
 	userID := TestUserInfo.ID
@@ -205,7 +213,7 @@ func TestTaskStepsOperations(t *testing.T) {
 		Description: "Task for testing steps operations",
 		Status:      "todo",
 		Priority:    "medium",
-		Steps: []task.Step{
+		Steps: []task.TaskStep{
 			{
 				TaskID:     0,
 				OrderIndex: 0,
@@ -225,38 +233,40 @@ func TestTaskStepsOperations(t *testing.T) {
 	t.Log("Test 1: Updating Step Order")
 
 	// 添加第二个步骤
-	step2 := task.Step{
+	step2 := task.TaskStep{
 		TaskID:     testTask.ID,
 		OrderIndex: 1,
 		Title:      "Step 2",
 		Detail:     "Second step",
 		Status:     "todo",
 	}
-	if err := taskRepo.AddStep(context.Background(), nil, &step2); err != nil {
+	if err := taskRepo.AddStep(context.Background(), &step2); err != nil {
 		t.Fatalf("Failed to add step 2: %v", err)
 	}
 
 	// 添加第三个步骤
-	step3 := task.Step{
+	step3 := task.TaskStep{
 		TaskID:     testTask.ID,
 		OrderIndex: 2,
 		Title:      "Step 3",
 		Detail:     "Third step",
 		Status:     "todo",
 	}
-	if err := taskRepo.AddStep(context.Background(), nil, &step3); err != nil {
+	if err := taskRepo.AddStep(context.Background(), &step3); err != nil {
 		t.Fatalf("Failed to add step 3: %v", err)
 	}
 
 	// 交换步骤1和步骤3的顺序
-	if err := taskRepo.UpdateStep(context.Background(), nil, testTask.ID, step3.ID, map[string]interface{}{
-		"order_index": 0,
+	order0 := 0
+	if err := taskRepo.ApplyUpdateStepFields(context.Background(), userID, testTask.ID, step3.ID, task.UpdateStepFields{
+		OrderIndex: &order0,
 	}); err != nil {
 		t.Fatalf("Failed to update step 3 order: %v", err)
 	}
 
-	if err := taskRepo.UpdateStep(context.Background(), nil, testTask.ID, testTask.Steps[0].ID, map[string]interface{}{
-		"order_index": 2,
+	order2 := 2
+	if err := taskRepo.ApplyUpdateStepFields(context.Background(), userID, testTask.ID, testTask.Steps[0].ID, task.UpdateStepFields{
+		OrderIndex: &order2,
 	}); err != nil {
 		t.Fatalf("Failed to update step 1 order: %v", err)
 	}
@@ -277,9 +287,9 @@ func TestTaskStepsOperations(t *testing.T) {
 	// 更新步骤详细信息
 	newDetail := "Updated step detail with more information"
 	newEstimate := 60
-	if err := taskRepo.UpdateStep(context.Background(), nil, testTask.ID, updatedTask.Steps[0].ID, map[string]interface{}{
-		"detail":           newDetail,
-		"estimate_minutes": newEstimate,
+	if err := taskRepo.ApplyUpdateStepFields(context.Background(), userID, testTask.ID, updatedTask.Steps[0].ID, task.UpdateStepFields{
+		Detail:      &newDetail,
+		EstimateMin: &newEstimate,
 	}); err != nil {
 		t.Fatalf("Failed to update step details: %v", err)
 	}

@@ -2,24 +2,25 @@ package session
 
 import (
 	"context"
-	"database/sql"
+
+	"gorm.io/gorm"
 )
 
 type Repository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
-func NewRepository(db *sql.DB) *Repository {
+func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
+}
+
+func (r *Repository) WithTx(tx *gorm.DB) *Repository {
+	return &Repository{db: tx}
 }
 
 func (r *Repository) GetSession(ctx context.Context, sessionID uint64) (*Session, error) {
 	var s Session
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, task_id, type, created_at 
-		 FROM sessions WHERE id = ?`,
-		sessionID).
-		Scan(&s.ID, &s.UserID, &s.TaskID, &s.Type, &s.CreatedAt)
+	err := r.db.WithContext(ctx).First(&s, sessionID).Error
 	if err != nil {
 		return nil, err
 	}
@@ -27,41 +28,18 @@ func (r *Repository) GetSession(ctx context.Context, sessionID uint64) (*Session
 }
 
 func (r *Repository) CreateMessage(ctx context.Context, m *Message) error {
-	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO messages (session_id, role, agent_name, content) 
-		 VALUES (?, ?, ?, ?)`,
-		m.SessionID, m.Role, m.AgentName, m.Content)
-	if err != nil {
-		return err
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	m.ID = uint64(id)
-	return nil
+	return r.db.WithContext(ctx).Create(m).Error
 }
 
 func (r *Repository) ListRecentMessages(ctx context.Context, sessionID uint64, limit int) ([]Message, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, session_id, role, agent_name, content, created_at 
-		 FROM messages WHERE session_id = ? 
-		 ORDER BY created_at DESC 
-		 LIMIT ?`,
-		sessionID, limit)
+	var messages []Message
+	err := r.db.WithContext(ctx).
+		Where("session_id = ?", sessionID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&messages).Error
 	if err != nil {
 		return nil, err
-	}
-	defer rows.Close()
-
-	var messages []Message
-	for rows.Next() {
-		var m Message
-		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.AgentName, &m.Content, &m.CreatedAt); err != nil {
-			return nil, err
-		}
-		messages = append(messages, m)
 	}
 
 	// 反转顺序，使最早的消息在前面
@@ -70,4 +48,54 @@ func (r *Repository) ListRecentMessages(ctx context.Context, sessionID uint64, l
 	}
 
 	return messages, nil
+}
+
+// GetTaskSessionOrCreate: 针对某个 user + task 找到一个 task session，没有就创建。
+func (r *Repository) GetTaskSessionOrCreate(ctx context.Context, userID, taskID uint64) (*Session, error) {
+	var sess Session
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND task_id = ? AND type = 'task'", userID, taskID).
+		First(&sess).Error
+	if err == nil {
+		return &sess, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	sess = Session{
+		UserID: userID,
+		TaskID: &taskID,
+		Type:   "task",
+	}
+	if err := r.db.WithContext(ctx).Create(&sess).Error; err != nil {
+		return nil, err
+	}
+	return &sess, nil
+}
+
+// CreateSystemMessage 在指定 session 中插入 system 消息
+func (r *Repository) CreateSystemMessage(ctx context.Context, sessionID uint64, agentName *string, content string) error {
+	msg := Message{
+		SessionID: sessionID,
+		Role:      "system",
+		AgentName: agentName,
+		Content:   content,
+	}
+	return r.db.WithContext(ctx).Create(&msg).Error
+}
+
+// CreateSystemMessageForTask: 针对某个任务（以及用户）写一条系统消息。
+// 用于依赖解锁、系统通知等场景。
+func (r *Repository) CreateSystemMessageForTask(
+	ctx context.Context,
+	userID, taskID uint64,
+	content string,
+) error {
+	sess, err := r.GetTaskSessionOrCreate(ctx, userID, taskID)
+	if err != nil {
+		return err
+	}
+	systemAgent := "system"
+	return r.CreateSystemMessage(ctx, sess.ID, &systemAgent, content)
 }

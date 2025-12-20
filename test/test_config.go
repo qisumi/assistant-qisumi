@@ -31,11 +31,17 @@ func GetTestConfig() (*config.Config, error) {
 // setTestEnv 设置测试环境变量
 func setTestEnv() {
 	// 设置数据库配置
+	if os.Getenv("DB_TYPE") == "" {
+		os.Setenv("DB_TYPE", "mysql")
+	}
 	os.Setenv("DB_HOST", "localhost")
 	os.Setenv("DB_PORT", "3306")
 	os.Setenv("DB_USERNAME", "root")
 	os.Setenv("DB_PASSWORD", "231966")
 	os.Setenv("DB_DATABASE", "assistant_qisumi")
+	if os.Getenv("DB_FILE_PATH") == "" {
+		os.Setenv("DB_FILE_PATH", "test_assistant.db")
+	}
 
 	// 设置其他必要的环境变量
 	os.Setenv("JWT_SECRET", "dev-secret-key-for-jwt-authentication")

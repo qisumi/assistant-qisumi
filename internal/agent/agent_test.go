@@ -85,7 +85,7 @@ func TestNewService(t *testing.T) {
 	agents := []Agent{executorAgent}
 
 	// 测试NewService函数
-	svc := NewService(router, agents, nil, nil, nil, llmClient)
+	svc := NewService(router, agents, nil, nil, nil, nil, llmClient)
 	if svc == nil {
 		t.Error("NewService() returned nil")
 	}

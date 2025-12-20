@@ -1,4 +1,5 @@
 package test
+
 import (
 	"context"
 	"testing"
@@ -9,7 +10,7 @@ import (
 )
 
 // MockLLMClient 用于测试的LLM客户端模拟
- type MockLLMClient struct{}
+type MockLLMClient struct{}
 
 func (m *MockLLMClient) Chat(ctx context.Context, cfg llm.Config, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	return &llm.ChatResponse{
@@ -103,7 +104,7 @@ func TestAgentServiceCreation(t *testing.T) {
 	router := agent.NewSimpleRouter()
 
 	// 创建Agent服务
-	agentService := agent.NewService(router, agents, nil, nil, nil, llmClient)
+	agentService := agent.NewService(router, agents, nil, nil, nil, nil, llmClient)
 
 	// 验证服务创建
 	if agentService == nil {
@@ -115,20 +116,19 @@ func TestAgentServiceCreation(t *testing.T) {
 // TestTaskPatchType 测试TaskPatch类型
 func TestTaskPatchType(t *testing.T) {
 	// 测试TaskPatch的各种类型
-	patchTypes := []string{
-		"UpdateStepStatus",
-		"RescheduleStep",
-		"UpdateTask",
-		"AddSteps",
-		"AddDependencies",
+	patchTypes := []agent.PatchKind{
+		agent.PatchUpdateStep,
+		agent.PatchAddSteps,
+		agent.PatchUpdateTask,
+		agent.PatchAddDependencies,
 	}
 
 	for _, patchType := range patchTypes {
 		patch := agent.TaskPatch{
-			Type: patchType,
+			Kind: patchType,
 		}
-		if patch.Type != patchType {
-			t.Errorf("Expected patch type %s, got %s", patchType, patch.Type)
+		if patch.Kind != patchType {
+			t.Errorf("Expected patch type %s, got %s", patchType, patch.Kind)
 		}
 		t.Logf("TaskPatch type %s is valid", patchType)
 	}

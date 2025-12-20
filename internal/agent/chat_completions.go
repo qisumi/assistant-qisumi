@@ -1,9 +1,12 @@
 package agent
 
 import (
-	"assistant-qisumi/internal/llm"
+	"context"
 	"encoding/json"
 	"fmt"
+
+	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/task"
 )
 
 // ChatCompletionsHandler 处理完整的Chat Completions流程，包括工具调用和结果处理
@@ -27,6 +30,7 @@ func NewChatCompletionsHandler(llmClient llm.Client, toolMap map[string]ToolExec
 
 // HandleChatCompletions 处理完整的Chat Completions流程
 func (h *ChatCompletionsHandler) HandleChatCompletions(
+	ctx context.Context,
 	cfg llm.Config,
 	initialMessages []llm.Message,
 	tools []llm.Tool,
@@ -39,7 +43,11 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 		ToolChoice: "auto",
 	}
 
-	resp, err := h.llmClient.Chat(nil, cfg, chatReq)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	resp, err := h.llmClient.Chat(ctx, cfg, chatReq)
 	if err != nil {
 		return "", nil, err
 	}
@@ -74,13 +82,11 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 			toolResponses = append(toolResponses, toolRespMsg)
 
 			// 解析工具调用结果生成TaskPatch
-			patch, err := h.generateTaskPatchFromToolCall(toolCall, toolResp)
+			patches, err := h.generateTaskPatchesFromToolCall(toolCall)
 			if err != nil {
-				return "", nil, fmt.Errorf("failed to generate task patch from tool call %s: %w", toolCall.Function.Name, err)
+				return "", nil, fmt.Errorf("failed to generate task patches from tool call %s: %w", toolCall.Function.Name, err)
 			}
-			if patch != nil {
-				taskPatches = append(taskPatches, *patch)
-			}
+			taskPatches = append(taskPatches, patches...)
 		}
 
 		// 4. 二次LLM调用，生成最终回复
@@ -101,7 +107,7 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 				ToolChoice: "none", // 不再调用工具，直接生成回复
 			}
 
-			finalResp, err := h.llmClient.Chat(nil, cfg, finalChatReq)
+			finalResp, err := h.llmClient.Chat(ctx, cfg, finalChatReq)
 			if err != nil {
 				return "", nil, err
 			}
@@ -139,74 +145,100 @@ func (h *ChatCompletionsHandler) executeToolCall(toolCall llm.ToolCall) ([]byte,
 	return resultJSON, nil
 }
 
-// generateTaskPatchFromToolCall 从工具调用生成TaskPatch
-func (h *ChatCompletionsHandler) generateTaskPatchFromToolCall(toolCall llm.ToolCall, toolResp []byte) (*TaskPatch, error) {
-	var args map[string]interface{}
-	if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-		return nil, err
-	}
+// generateTaskPatchesFromToolCall 从工具调用生成TaskPatch列表
+func (h *ChatCompletionsHandler) generateTaskPatchesFromToolCall(toolCall llm.ToolCall) ([]TaskPatch, error) {
+	var patches []TaskPatch
+	name := toolCall.Function.Name
+	argsJSON := toolCall.Function.Arguments
 
-	switch toolCall.Function.Name {
+	switch name {
 	case "update_task":
-		if taskID, ok := args["task_id"].(float64); ok {
-			if fields, ok := args["fields"].(map[string]interface{}); ok {
-				payload := map[string]interface{}{
-					"task_id": uint64(taskID),
-					"fields":  fields,
-				}
-				return &TaskPatch{
-					Type:    "update_task",
-					Payload: payload,
-				}, nil
-			}
+		var args UpdateTaskArgs
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return nil, fmt.Errorf("update_task args decode: %w", err)
 		}
+		patches = append(patches, TaskPatch{
+			Kind: PatchUpdateTask,
+			UpdateTask: &UpdateTaskPatch{
+				TaskID: args.TaskID,
+				Fields: args.Fields,
+			},
+		})
+
 	case "update_steps":
-		if taskID, ok := args["task_id"].(float64); ok {
-			if updates, ok := args["updates"].([]interface{}); ok {
-				for _, update := range updates {
-					if updateMap, ok := update.(map[string]interface{}); ok {
-						if stepID, ok := updateMap["step_id"].(float64); ok {
-							if fields, ok := updateMap["fields"].(map[string]interface{}); ok {
-								payload := map[string]interface{}{
-									"task_id": uint64(taskID),
-									"step_id": uint64(stepID),
-									"fields":  fields,
-								}
-								return &TaskPatch{
-									Type:    "update_step",
-									Payload: payload,
-								}, nil
-							}
-						}
-					}
-				}
-			}
+		var args UpdateStepsArgs
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return nil, fmt.Errorf("update_steps args decode: %w", err)
 		}
-	case "add_steps":
-		if taskID, ok := args["task_id"].(float64); ok {
-			return &TaskPatch{
-				Type: "add_steps",
-				Payload: map[string]interface{}{
-					"task_id":   uint64(taskID),
-					"arguments": string(toolCall.Function.Arguments),
+		for _, u := range args.Updates {
+			patches = append(patches, TaskPatch{
+				Kind: PatchUpdateStep,
+				UpdateStep: &UpdateStepPatch{
+					TaskID: args.TaskID,
+					StepID: u.StepID,
+					Fields: u.Fields,
 				},
-			}, nil
+			})
 		}
+
+	case "add_steps":
+		var args AddStepsArgs
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return nil, fmt.Errorf("add_steps args decode: %w", err)
+		}
+		records := make([]task.NewStepRecord, 0, len(args.Steps))
+		for _, s := range args.Steps {
+			records = append(records, task.NewStepRecord{
+				Title:             s.Title,
+				Detail:            s.Detail,
+				EstimateMinutes:   s.EstimateMinutes,
+				InsertAfterStepID: s.InsertAfterStepID,
+			})
+		}
+		patches = append(patches, TaskPatch{
+			Kind: PatchAddSteps,
+			AddSteps: &AddStepsPatch{
+				TaskID:        args.TaskID,
+				ParentStepID:  args.ParentStepID,
+				StepsToInsert: records,
+			},
+		})
+
 	case "add_dependencies":
-		return &TaskPatch{
-			Type: "add_dependencies",
-			Payload: map[string]interface{}{
-				"arguments": string(toolCall.Function.Arguments),
+		var args AddDependenciesArgs
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return nil, fmt.Errorf("add_dependencies args decode: %w", err)
+		}
+		items := make([]task.DependencyItem, 0, len(args.Items))
+		for _, it := range args.Items {
+			items = append(items, task.DependencyItem{
+				PredecessorTaskID: it.PredecessorTaskID,
+				PredecessorStepID: it.PredecessorStepID,
+				SuccessorTaskID:   it.SuccessorTaskID,
+				SuccessorStepID:   it.SuccessorStepID,
+				Condition:         it.Condition,
+				Action:            it.Action,
+			})
+		}
+		patches = append(patches, TaskPatch{
+			Kind: PatchAddDependencies,
+			AddDependencies: &AddDependenciesPatch{
+				Items: items,
 			},
-		}, nil
+		})
+
 	case "mark_tasks_focus_today":
-		return &TaskPatch{
-			Type: "mark_tasks_focus_today",
-			Payload: map[string]interface{}{
-				"arguments": string(toolCall.Function.Arguments),
+		var args MarkTasksFocusTodayArgs
+		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+			return nil, fmt.Errorf("mark_tasks_focus_today args decode: %w", err)
+		}
+		patches = append(patches, TaskPatch{
+			Kind: PatchMarkTasksFocusToday,
+			MarkTasksFocusToday: &MarkTasksFocusTodayPatch{
+				TaskIDs: args.TaskIDs,
 			},
-		}, nil
+		})
 	}
 
-	return nil, nil
+	return patches, nil
 }

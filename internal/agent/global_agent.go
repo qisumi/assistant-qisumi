@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"assistant-qisumi/internal/llm"
@@ -74,120 +73,7 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	})
 
 	// 定义可用工具
-	tools := []llm.Tool{
-		{
-			Type: "function",
-			Function: llm.ToolFunction{
-				Name:        "mark_tasks_focus_today",
-				Description: "Mark one or more tasks as today's focus tasks, for daily planning or overview.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"task_ids": map[string]interface{}{
-							"type":  "array",
-							"items": map[string]interface{}{"type": "integer"},
-						},
-					},
-					"required":             []string{"task_ids"},
-					"additionalProperties": false,
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: llm.ToolFunction{
-				Name:        "update_task",
-				Description: "Update a task's metadata such as title, description, status, priority or due_at.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"task_id": map[string]interface{}{
-							"type":        "integer",
-							"description": "The ID of the task to update.",
-						},
-						"fields": map[string]interface{}{
-							"type":        "object",
-							"description": "Fields to update. Only include fields that need to be changed.",
-							"properties": map[string]interface{}{
-								"title":       map[string]interface{}{"type": "string"},
-								"description": map[string]interface{}{"type": "string"},
-								"status": map[string]interface{}{
-									"type": "string",
-									"enum": []string{"todo", "in_progress", "done", "cancelled"},
-								},
-								"priority": map[string]interface{}{
-									"type": "string",
-									"enum": []string{"low", "medium", "high"},
-								},
-								"due_at": map[string]interface{}{
-									"type":        "string",
-									"description": "New due date time in ISO 8601 format, e.g. 2025-12-08T20:00:00",
-								},
-							},
-							"additionalProperties": false,
-						},
-					},
-					"required": []string{"task_id", "fields"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: llm.ToolFunction{
-				Name:        "update_steps",
-				Description: "Update one or more existing steps in a task.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"task_id": map[string]interface{}{
-							"type": "integer",
-						},
-						"updates": map[string]interface{}{
-							"type": "array",
-							"items": map[string]interface{}{
-								"type": "object",
-								"properties": map[string]interface{}{
-									"step_id": map[string]interface{}{
-										"type": "integer",
-									},
-									"fields": map[string]interface{}{
-										"type": "object",
-										"properties": map[string]interface{}{
-											"title":  map[string]interface{}{"type": "string"},
-											"detail": map[string]interface{}{"type": "string"},
-											"status": map[string]interface{}{
-												"type": "string",
-												"enum": []string{"locked", "todo", "in_progress", "done", "blocked"},
-											},
-											"blocking_reason":  map[string]interface{}{"type": "string"},
-											"estimate_minutes": map[string]interface{}{"type": "integer", "minimum": 1},
-											"order_index": map[string]interface{}{
-												"type":        "integer",
-												"description": "New order index, smaller means earlier.",
-											},
-											"planned_start": map[string]interface{}{
-												"type":        "string",
-												"description": "Planned start time in ISO 8601.",
-											},
-											"planned_end": map[string]interface{}{
-												"type":        "string",
-												"description": "Planned end time in ISO 8601.",
-											},
-										},
-										"additionalProperties": false,
-									},
-								},
-								"required":             []string{"step_id", "fields"},
-								"additionalProperties": false,
-							},
-						},
-					},
-					"required":             []string{"task_id", "updates"},
-					"additionalProperties": false,
-				},
-			},
-		},
-	}
+	tools := llm.GlobalTools()
 
 	// 构造Chat请求
 	chatReq := llm.ChatRequest{
@@ -205,73 +91,13 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 
 	// 2. 处理 LLM 响应，生成 assistant 回复文本和 TaskPatches
 	var assistantMessage string
-	var taskPatches []TaskPatch
-
 	if len(resp.Choices) > 0 {
-		choice := resp.Choices[0]
-		assistantMessage = choice.Message.Content
+		assistantMessage = resp.Choices[0].Message.Content
+	}
 
-		// 解析工具调用
-		for _, toolCall := range choice.Message.ToolCalls {
-			var args map[string]interface{}
-			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-				continue
-			}
-
-			switch toolCall.Function.Name {
-			case "mark_tasks_focus_today":
-				if taskIDs, ok := args["task_ids"].([]interface{}); ok {
-					var uintTaskIDs []uint64
-					for _, id := range taskIDs {
-						if idFloat, ok := id.(float64); ok {
-							uintTaskIDs = append(uintTaskIDs, uint64(idFloat))
-						}
-					}
-					payload := map[string]interface{}{
-						"task_ids": uintTaskIDs,
-					}
-					taskPatches = append(taskPatches, TaskPatch{
-						Type:    "mark_tasks_focus_today",
-						Payload: payload,
-					})
-				}
-			case "update_task":
-				if taskID, ok := args["task_id"].(float64); ok {
-					if fields, ok := args["fields"].(map[string]interface{}); ok {
-						payload := map[string]interface{}{
-							"task_id": uint64(taskID),
-							"fields":  fields,
-						}
-						taskPatches = append(taskPatches, TaskPatch{
-							Type:    "update_task",
-							Payload: payload,
-						})
-					}
-				}
-			case "update_steps":
-				if taskID, ok := args["task_id"].(float64); ok {
-					if updates, ok := args["updates"].([]interface{}); ok {
-						for _, update := range updates {
-							if updateMap, ok := update.(map[string]interface{}); ok {
-								if stepID, ok := updateMap["step_id"].(float64); ok {
-									if fields, ok := updateMap["fields"].(map[string]interface{}); ok {
-										payload := map[string]interface{}{
-											"task_id": uint64(taskID),
-											"step_id": uint64(stepID),
-											"fields":  fields,
-										}
-										taskPatches = append(taskPatches, TaskPatch{
-											Type:    "update_step",
-											Payload: payload,
-										})
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	taskPatches, err := BuildPatchesFromToolCalls(resp)
+	if err != nil {
+		// 记录错误但继续返回 assistant 消息
 	}
 
 	return &AgentResponse{
