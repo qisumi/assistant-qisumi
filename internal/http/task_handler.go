@@ -6,6 +6,7 @@ import (
 
 	"assistant-qisumi/internal/auth"
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
 
 	"github.com/gin-gonic/gin"
@@ -13,12 +14,14 @@ import (
 
 type TaskHandler struct {
 	taskSvc       *task.Service
+	sessionRepo   *session.Repository
 	llmSettingSvc *auth.LLMSettingService
 }
 
-func NewTaskHandler(taskSvc *task.Service, llmSettingSvc *auth.LLMSettingService) *TaskHandler {
+func NewTaskHandler(taskSvc *task.Service, sessionRepo *session.Repository, llmSettingSvc *auth.LLMSettingService) *TaskHandler {
 	return &TaskHandler{
 		taskSvc:       taskSvc,
+		sessionRepo:   sessionRepo,
 		llmSettingSvc: llmSettingSvc,
 	}
 }
@@ -49,8 +52,8 @@ func (h *TaskHandler) createFromText(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get LLM config"})
 		return
 	}
-	if llmConfig == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "LLM config not set"})
+	if llmConfig == nil || llmConfig.APIKey == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "LLM API key not set. Please configure it in settings or contact administrator."})
 		return
 	}
 
@@ -66,7 +69,18 @@ func (h *TaskHandler) createFromText(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"task": t})
+
+	// 获取或创建会话
+	sess, err := h.sessionRepo.GetTaskSessionOrCreate(c, userID, t.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get or create session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"task":    t,
+		"session": sess,
+	})
 }
 
 // listTasks 获取任务列表
@@ -77,7 +91,10 @@ func (h *TaskHandler) listTasks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"tasks": tasks})
+	c.JSON(http.StatusOK, gin.H{
+		"tasks": tasks,
+		"total": len(tasks),
+	})
 }
 
 // getTask 获取任务详情
@@ -95,7 +112,18 @@ func (h *TaskHandler) getTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"task": t})
+
+	// 获取或创建会话
+	sess, err := h.sessionRepo.GetTaskSessionOrCreate(c, userID, t.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get or create session"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"task":    t,
+		"session": sess,
+	})
 }
 
 // patchTask 更新任务

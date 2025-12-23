@@ -59,12 +59,7 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	})
 
 	// 添加历史消息
-	for _, msg := range req.Messages {
-		messages = append(messages, llm.Message{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
-	}
+	messages = append(messages, historyToLLMMessages(req.Messages)...)
 
 	// 添加当前用户输入
 	messages = append(messages, llm.Message{

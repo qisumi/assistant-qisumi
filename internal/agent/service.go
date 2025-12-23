@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"assistant-qisumi/internal/dependency"
@@ -65,18 +66,18 @@ func (s *Service) HandleUserMessage(
 
 	sess, err := s.sessionRepo.GetSession(ctx, sessionID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("GetSession failed: %w", err)
 	}
 	msgs, err := s.sessionRepo.ListRecentMessages(ctx, sessionID, 20)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ListRecentMessages failed: %w", err)
 	}
 
 	var t *task.Task
 	if sess.TaskID != nil {
 		t, err = s.taskRepo.GetTaskWithSteps(ctx, userID, *sess.TaskID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GetTaskWithSteps failed for taskID=%d: %w", *sess.TaskID, err)
 		}
 	}
 
@@ -99,7 +100,17 @@ func (s *Service) HandleUserMessage(
 
 	resp, err := ag.Handle(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s agent Handle failed: %w", agentName, err)
+	}
+
+	// 首先保存用户消息
+	userMsg := session.Message{
+		SessionID: sessionID,
+		Role:      "user",
+		Content:   userInput,
+	}
+	if err := s.sessionRepo.CreateMessage(ctx, &userMsg); err != nil {
+		return nil, fmt.Errorf("CreateMessage (user) failed: %w", err)
 	}
 
 	// 1. 开启事务: 应用 TaskPatches 更新 task & steps & dependencies
@@ -107,12 +118,12 @@ func (s *Service) HandleUserMessage(
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// 应用TaskPatches
 			if err := s.applyTaskPatches(ctx, userID, tx, resp.TaskPatches); err != nil {
-				return err
+				return fmt.Errorf("applyTaskPatches failed: %w", err)
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("transaction failed: %w", err)
 		}
 	}
 
@@ -124,7 +135,7 @@ func (s *Service) HandleUserMessage(
 		Content:   resp.AssistantMessage,
 	}
 	if err := s.sessionRepo.CreateMessage(ctx, &assistantMsg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("CreateMessage failed: %w", err)
 	}
 
 	return resp, nil

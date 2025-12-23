@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"assistant-qisumi/internal/auth"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,14 +38,11 @@ func (h *SettingsHandler) getLLMSettings(c *gin.Context) {
 	}
 
 	if config == nil {
-		c.JSON(http.StatusOK, gin.H{"exists": false})
+		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"exists": true,
-		"config": config,
-	})
+	c.JSON(http.StatusOK, config)
 }
 
 // updateLLMSettings 更新当前用户的LLM设置
@@ -62,7 +60,9 @@ func (h *SettingsHandler) updateLLMSettings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "LLM settings updated successfully"})
+	// 获取更新后的设置返回
+	config, _ := h.llmSettingService.GetLLMConfig(c.Request.Context(), userID)
+	c.JSON(http.StatusOK, config)
 }
 
 // deleteLLMSettings 删除当前用户的LLM设置
@@ -74,5 +74,7 @@ func (h *SettingsHandler) deleteLLMSettings(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "LLM settings deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "LLM settings deleted",
+	})
 }

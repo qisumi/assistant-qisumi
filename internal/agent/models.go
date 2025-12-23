@@ -19,8 +19,8 @@ type AgentRequest struct {
 }
 
 type AgentResponse struct {
-	AssistantMessage string      `json:"assistant_message"`
-	TaskPatches      []TaskPatch `json:"task_patches"`
+	AssistantMessage string      `json:"assistantMessage"`
+	TaskPatches      []TaskPatch `json:"taskPatches"`
 }
 
 type Agent interface {

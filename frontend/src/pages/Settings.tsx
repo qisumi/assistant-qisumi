@@ -1,75 +1,118 @@
-import React, { useState } from 'react'
+import React, { useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, Form, Input, Button, Space, Typography, message as antdMessage, Divider, Alert } from 'antd';
+import { SettingOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
+
+import { fetchLLMSettings, updateLLMSettings, type LLMSettings } from '@/api/settings';
+
+const { Title, Paragraph, Text } = Typography;
 
 const Settings: React.FC = () => {
-  // TODO: Implement settings logic
-  const [displayName, setDisplayName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('')
+  const [form] = Form.useForm();
+  const queryClient = useQueryClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO: Implement save settings logic
-    console.log('Saving settings:', { displayName, baseUrl, apiKey, model })
-  }
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ['llmSettings'],
+    queryFn: fetchLLMSettings,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (values: LLMSettings) => updateLLMSettings(values),
+    onSuccess: () => {
+      antdMessage.success('设置已保存');
+      queryClient.invalidateQueries({ queryKey: ['llmSettings'] });
+    },
+    onError: (err: any) => {
+      console.error(err);
+      antdMessage.error('保存失败，请检查输入或稍后重试');
+    },
+  });
+
+  useEffect(() => {
+    if (settings) {
+      form.setFieldsValue({
+        base_url: settings.base_url,
+        model: settings.model,
+        // api_key 通常不回显
+      });
+    }
+  }, [settings, form]);
+
+  const onFinish = (values: LLMSettings) => {
+    updateMutation.mutate(values);
+  };
 
   return (
-    <div>
-      <h1>设置</h1>
-      <div className="card">
-        <h3>用户资料</h3>
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="displayName">显示名称</label>
-            <input
-              type="text"
-              id="displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="请输入显示名称"
-            />
-          </div>
-          <h3 style={{ marginTop: '20px' }}>LLM 配置</h3>
-          <div>
-            <label htmlFor="baseUrl">API Base URL</label>
-            <input
-              type="text"
-              id="baseUrl"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com/v1"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="apiKey">API Key</label>
-            <input
-              type="password"
-              id="apiKey"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="model">默认模型</label>
-            <input
-              type="text"
-              id="model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder="gpt-4"
-              required
-            />
-          </div>
-          <button type="submit" style={{ marginTop: '20px' }}>
-            保存设置
-          </button>
-        </form>
-      </div>
-    </div>
-  )
-}
+    <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
+      <Card style={{ maxWidth: 800, width: '100%' }}>
+        <Space direction="vertical" style={{ width: '100%', marginBottom: 24 }}>
+          <Title level={2}>
+            <SettingOutlined style={{ marginRight: 12 }} />
+            系统设置
+          </Title>
+          <Paragraph type="secondary">
+            配置您的个人偏好和 LLM 服务接入信息。
+          </Paragraph>
+        </Space>
 
-export default Settings
+        <Divider orientation="left">LLM 配置</Divider>
+        <Alert
+          message="安全提示"
+          description="您的 API Key 将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的 Key。"
+          type="info"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
+          initialValues={{
+            base_url: 'https://api.openai.com/v1',
+            model: 'gpt-3.5-turbo',
+          }}
+        >
+          <Form.Item
+            label="API Base URL"
+            name="base_url"
+            rules={[{ required: true, message: '请输入 Base URL' }]}
+            tooltip="OpenAI 兼容接口的地址，例如 https://api.openai.com/v1"
+          >
+            <Input prefix={<GlobalOutlined />} placeholder="https://api.openai.com/v1" />
+          </Form.Item>
+
+          <Form.Item
+            label="API Key"
+            name="api_key"
+            rules={[{ required: !settings, message: '请输入 API Key' }]}
+            tooltip={settings ? "留空表示不修改已保存的 Key" : "请输入您的 API Key"}
+          >
+            <Input.Password prefix={<LockOutlined />} placeholder={settings ? "••••••••••••••••" : "sk-..."} />
+          </Form.Item>
+
+          <Form.Item
+            label="默认模型"
+            name="model"
+            rules={[{ required: true, message: '请输入模型名称' }]}
+          >
+            <Input placeholder="gpt-3.5-turbo, gpt-4, qwen-max 等" />
+          </Form.Item>
+
+          <Form.Item>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              loading={updateMutation.isPending}
+              block
+            >
+              保存配置
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
+    </div>
+  );
+};
+
+export default Settings;

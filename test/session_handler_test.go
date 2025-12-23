@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupSessionTest(t *testing.T) (*agent.Service, *auth.LLMSettingService, *gorm.DB) {
+func setupSessionTest(t *testing.T) (*agent.Service, *session.Repository, *auth.LLMSettingService, *gorm.DB) {
 	gormDB, err := db.NewGormDB("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to connect database: %v", err)
@@ -72,15 +72,15 @@ func setupSessionTest(t *testing.T) (*agent.Service, *auth.LLMSettingService, *g
 	agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, dependencySvc, gormDB, llmClient)
 
 	llmSettingRepo := auth.NewLLMSettingRepository(gormDB)
-	llmSettingSvc := auth.NewLLMSettingService(llmSettingRepo, "12345678901234567890123456789012")
+	llmSettingSvc := auth.NewLLMSettingService(llmSettingRepo, "12345678901234567890123456789012", nil)
 
-	return agentSvc, llmSettingSvc, gormDB
+	return agentSvc, sessionRepo, llmSettingSvc, gormDB
 }
 
 func TestSessionHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	agentSvc, llmSettingSvc, _ := setupSessionTest(t)
-	handler := internalHTTP.NewSessionHandler(agentSvc, llmSettingSvc)
+	agentSvc, sessionRepo, llmSettingSvc, _ := setupSessionTest(t)
+	handler := internalHTTP.NewSessionHandler(agentSvc, sessionRepo, llmSettingSvc)
 
 	router := gin.Default()
 	authGroup := router.Group("/api")

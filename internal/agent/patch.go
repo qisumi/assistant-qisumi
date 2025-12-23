@@ -17,31 +17,31 @@ const (
 type TaskPatch struct {
 	Kind PatchKind `json:"kind"`
 
-	UpdateTask          *UpdateTaskPatch          `json:"update_task,omitempty"`
-	UpdateStep          *UpdateStepPatch          `json:"update_step,omitempty"`
-	AddSteps            *AddStepsPatch            `json:"add_steps,omitempty"`
-	AddDependencies     *AddDependenciesPatch     `json:"add_dependencies,omitempty"`
-	MarkTasksFocusToday *MarkTasksFocusTodayPatch `json:"mark_tasks_focus_today,omitempty"`
-	CreateTask          *CreateTaskPatch          `json:"create_task,omitempty"`
+	UpdateTask          *UpdateTaskPatch          `json:"updateTask,omitempty"`
+	UpdateStep          *UpdateStepPatch          `json:"updateStep,omitempty"`
+	AddSteps            *AddStepsPatch            `json:"addSteps,omitempty"`
+	AddDependencies     *AddDependenciesPatch     `json:"addDependencies,omitempty"`
+	MarkTasksFocusToday *MarkTasksFocusTodayPatch `json:"markTasksFocusToday,omitempty"`
+	CreateTask          *CreateTaskPatch          `json:"createTask,omitempty"`
 }
 
 // --- 各种具体 Patch Payload ---
 
 type UpdateTaskPatch struct {
-	TaskID uint64                `json:"task_id"`
+	TaskID uint64                `json:"taskId"`
 	Fields task.UpdateTaskFields `json:"fields"`
 }
 
 type UpdateStepPatch struct {
-	TaskID uint64                `json:"task_id"`
-	StepID uint64                `json:"step_id"`
+	TaskID uint64                `json:"taskId"`
+	StepID uint64                `json:"stepId"`
 	Fields task.UpdateStepFields `json:"fields"`
 }
 
 type AddStepsPatch struct {
-	TaskID        uint64               `json:"task_id"`
-	ParentStepID  *uint64              `json:"parent_step_id,omitempty"`
-	StepsToInsert []task.NewStepRecord `json:"steps_to_insert"`
+	TaskID        uint64               `json:"taskId"`
+	ParentStepID  *uint64              `json:"parentStepId,omitempty"`
+	StepsToInsert []task.NewStepRecord `json:"stepsToInsert"`
 }
 
 type AddDependenciesPatch struct {
@@ -49,13 +49,13 @@ type AddDependenciesPatch struct {
 }
 
 type MarkTasksFocusTodayPatch struct {
-	TaskIDs []uint64 `json:"task_ids"`
+	TaskIDs []uint64 `json:"taskIds"`
 }
 
 type CreateTaskPatch struct {
 	Title       string               `json:"title"`
 	Description string               `json:"description"`
-	DueAt       *string              `json:"due_at,omitempty"`
+	DueAt       *string              `json:"dueAt,omitempty"`
 	Priority    string               `json:"priority"`
 	Steps       []task.NewStepRecord `json:"steps"`
 }

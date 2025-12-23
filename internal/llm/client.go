@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
 type Config struct {
@@ -85,7 +87,7 @@ func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*Ch
 	if err != nil {
 		return nil, err
 	}
-	url := fmt.Sprintf("%s/v1/chat/completions", cfg.BaseURL)
+	url := fmt.Sprintf("%s/chat/completions", cfg.BaseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -100,7 +102,12 @@ func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*Ch
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("llm http %d", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyText := strings.TrimSpace(string(bodyBytes))
+		if bodyText == "" {
+			return nil, fmt.Errorf("llm http %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("llm http %d: %s", resp.StatusCode, bodyText)
 	}
 
 	var cr ChatResponse

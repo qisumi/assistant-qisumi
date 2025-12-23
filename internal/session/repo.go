@@ -53,14 +53,15 @@ func (r *Repository) ListRecentMessages(ctx context.Context, sessionID uint64, l
 // GetTaskSessionOrCreate: 针对某个 user + task 找到一个 task session，没有就创建。
 func (r *Repository) GetTaskSessionOrCreate(ctx context.Context, userID, taskID uint64) (*Session, error) {
 	var sess Session
-	err := r.db.WithContext(ctx).
+	result := r.db.WithContext(ctx).
 		Where("user_id = ? AND task_id = ? AND type = 'task'", userID, taskID).
-		First(&sess).Error
-	if err == nil {
-		return &sess, nil
+		Limit(1).
+		Find(&sess)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	if err != gorm.ErrRecordNotFound {
-		return nil, err
+	if result.RowsAffected > 0 {
+		return &sess, nil
 	}
 
 	sess = Session{
@@ -98,4 +99,28 @@ func (r *Repository) CreateSystemMessageForTask(
 	}
 	systemAgent := "system"
 	return r.CreateSystemMessage(ctx, sess.ID, &systemAgent, content)
+}
+
+// GetGlobalSessionOrCreate: 获取或创建全局会话
+func (r *Repository) GetGlobalSessionOrCreate(ctx context.Context, userID uint64) (*Session, error) {
+	var sess Session
+	result := r.db.WithContext(ctx).
+		Where("user_id = ? AND type = 'global'", userID).
+		Limit(1).
+		Find(&sess)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected > 0 {
+		return &sess, nil
+	}
+
+	sess = Session{
+		UserID: userID,
+		Type:   "global",
+	}
+	if err := r.db.WithContext(ctx).Create(&sess).Error; err != nil {
+		return nil, err
+	}
+	return &sess, nil
 }

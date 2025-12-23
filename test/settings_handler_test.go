@@ -27,7 +27,7 @@ func setupSettingsTest(t *testing.T) *auth.LLMSettingService {
 
 	repo := auth.NewLLMSettingRepository(gormDB)
 	// Use a 32-byte key for AES-256
-	return auth.NewLLMSettingService(repo, "12345678901234567890123456789012")
+	return auth.NewLLMSettingService(repo, "12345678901234567890123456789012", nil)
 }
 
 func TestSettingsHandler(t *testing.T) {
@@ -52,10 +52,10 @@ func TestSettingsHandler(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", w.Code)
 		}
-		var resp map[string]interface{}
+		var resp auth.LLMConfig
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp["exists"] != false {
-			t.Error("expected exists to be false")
+		if resp.BaseURL != "" {
+			t.Error("expected empty config when default is nil")
 		}
 	})
 

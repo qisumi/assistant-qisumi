@@ -14,13 +14,16 @@ import (
 type LLMSettingService struct {
 	repo          *LLMSettingRepository
 	encryptionKey []byte
+	defaultConfig *LLMConfig
 }
 
 // LLMConfig 用于对外暴露的LLM配置，不包含加密的API密钥
 type LLMConfig struct {
-	BaseURL string `json:"base_url"`
-	APIKey  string `json:"api_key"` // 明文API密钥，仅用于客户端调用
-	Model   string `json:"model"`
+	BaseURL   string `json:"base_url"`
+	APIKey    string `json:"api_key,omitempty"` // 明文API密钥，仅用于客户端调用
+	Model     string `json:"model"`
+	HasAPIKey bool   `json:"has_api_key"`
+	IsDefault bool   `json:"is_default"`
 }
 
 // LLMSettingRequest 创建或更新LLM配置的请求
@@ -31,10 +34,11 @@ type LLMSettingRequest struct {
 }
 
 // NewLLMSettingService 创建新的用户LLM配置服务
-func NewLLMSettingService(repo *LLMSettingRepository, encryptionKey string) *LLMSettingService {
+func NewLLMSettingService(repo *LLMSettingRepository, encryptionKey string, defaultConfig *LLMConfig) *LLMSettingService {
 	return &LLMSettingService{
 		repo:          repo,
 		encryptionKey: []byte(encryptionKey),
+		defaultConfig: defaultConfig,
 	}
 }
 
@@ -98,7 +102,8 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 	}
 
 	if setting == nil {
-		return nil, nil
+		// 如果用户没有配置，返回默认配置
+		return s.defaultConfig, nil
 	}
 
 	apiKey, err := s.decryptAPIKey(setting.APIKeyEnc)
@@ -107,9 +112,11 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 	}
 
 	return &LLMConfig{
-		BaseURL: setting.BaseURL,
-		APIKey:  apiKey,
-		Model:   setting.Model,
+		BaseURL:   setting.BaseURL,
+		APIKey:    apiKey,
+		Model:     setting.Model,
+		HasAPIKey: true,
+		IsDefault: false,
 	}, nil
 }
 

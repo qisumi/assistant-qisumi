@@ -10,13 +10,14 @@ import (
 	"assistant-qisumi/internal/auth"
 	"assistant-qisumi/internal/db"
 	internalHTTP "assistant-qisumi/internal/http"
+	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func setupTaskTest(t *testing.T) (*task.Service, *auth.LLMSettingService, *gorm.DB) {
+func setupTaskTest(t *testing.T) (*task.Service, *session.Repository, *auth.LLMSettingService, *gorm.DB) {
 	gormDB, err := db.NewGormDB("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to connect database: %v", err)
@@ -52,25 +53,32 @@ func setupTaskTest(t *testing.T) (*task.Service, *auth.LLMSettingService, *gorm.
         updated_at DATETIME
     )`)
 
+	// 迁移 Session 相关表
+	err = gormDB.AutoMigrate(&session.Session{}, &session.Message{})
+	if err != nil {
+		t.Fatalf("failed to migrate session tables: %v", err)
+	}
+
 	err = gormDB.AutoMigrate(&auth.UserLLMSetting{})
 	if err != nil {
 		t.Fatalf("failed to migrate database: %v", err)
 	}
 
 	taskRepo := task.NewRepository(gormDB)
+	sessionRepo := session.NewRepository(gormDB)
 	llmClient := &mockLLMClient{}
 	taskSvc := task.NewService(taskRepo, llmClient)
 
 	llmSettingRepo := auth.NewLLMSettingRepository(gormDB)
-	llmSettingSvc := auth.NewLLMSettingService(llmSettingRepo, "12345678901234567890123456789012")
+	llmSettingSvc := auth.NewLLMSettingService(llmSettingRepo, "12345678901234567890123456789012", nil)
 
-	return taskSvc, llmSettingSvc, gormDB
+	return taskSvc, sessionRepo, llmSettingSvc, gormDB
 }
 
 func TestTaskHandlerValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	taskSvc, llmSettingSvc, _ := setupTaskTest(t)
-	handler := internalHTTP.NewTaskHandler(taskSvc, llmSettingSvc)
+	taskSvc, sessionRepo, llmSettingSvc, _ := setupTaskTest(t)
+	handler := internalHTTP.NewTaskHandler(taskSvc, sessionRepo, llmSettingSvc)
 
 	router := gin.Default()
 	authGroup := router.Group("/api")

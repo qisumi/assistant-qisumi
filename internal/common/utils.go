@@ -40,3 +40,55 @@ func DetectLanguage(text string) string {
 func IsValidID(id uint64) bool {
 	return id > 0
 }
+
+// ExtractJSON 从可能包含 Markdown 代码块的字符串中提取 JSON
+func ExtractJSON(content string) string {
+	// 查找 ```json 和 ```
+	start := -1
+	if idx := 0; idx < len(content) {
+		// 尝试查找 ```json
+		for i := 0; i < len(content)-7; i++ {
+			if content[i:i+7] == "```json" {
+				start = i + 7
+				break
+			}
+		}
+	}
+
+	if start != -1 {
+		end := -1
+		for i := start; i < len(content)-3; i++ {
+			if content[i:i+3] == "```" {
+				end = i
+				break
+			}
+		}
+		if end != -1 {
+			return content[start:end]
+		}
+	}
+
+	// 如果没找到 ```json，尝试查找普通的 ```
+	start = -1
+	for i := 0; i < len(content)-3; i++ {
+		if content[i:i+3] == "```" {
+			start = i + 3
+			break
+		}
+	}
+
+	if start != -1 {
+		end := -1
+		for i := start; i < len(content)-3; i++ {
+			if content[i:i+3] == "```" {
+				end = i
+				break
+			}
+		}
+		if end != -1 {
+			return content[start:end]
+		}
+	}
+
+	return content
+}

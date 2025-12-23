@@ -4,21 +4,25 @@
 
 基于 AI 的**任务规划 & 备忘录系统**，用户通过自然语言与多 Agent 协作完成任务管理。
 
-**技术栈**: Go 1.24.5 (Gin + GORM) 后端 + React 18 (Vite + Zustand) 前端 + MySQL/SQLite 数据库
+**技术栈**: Go 1.24+ (推荐 1.25) 后端 + React 18 (Vite + Zustand) 前端 + MySQL/SQLite 数据库
 
 ## 核心架构
 
 ### Multi-Agent 系统 (`internal/agent/`)
 
 系统采用 Router + 多 Agent 分发架构：
-- **Router** (`router.go`): 根据用户输入路由到合适的 Agent（基于关键词匹配）
-- **ExecutorAgent**: 执行类操作（标记完成、修改任务属性）
-- **PlannerAgent**: 规划类操作（拆分步骤、重排日程）
-- **SummarizerAgent**: 单任务总结
-- **GlobalAgent**: 跨任务全局查询（如"今天要做什么"）
-- **TaskCreationAgent**: 从自然语言文本创建任务
+- **Router** (`router.go` / `router_agent.go`): 
+  - `SimpleRouter`: 基于关键词匹配路由（当前默认使用）。
+  - `RouterAgent`: 基于 LLM 的智能路由（可选）。
+- **ExecutorAgent**: 执行类操作（标记完成、修改任务属性）。
+- **PlannerAgent**: 规划类操作（拆分步骤、重排日程）。
+- **SummarizerAgent**: 单任务总结。
+- **GlobalAgent**: 跨任务全局查询（如"今天要做什么"）。
+- **TaskCreationAgent**: 从自然语言文本创建任务。
 
-**关键模式**: Agent 通过 LLM tool calling 返回 `TaskPatch` 结构，由 `service.go` 统一应用到数据库。
+**关键模式**: 
+- Agent 通过 LLM tool calling 返回 `TaskPatch` 结构，由 `service.go` 统一应用到数据库。
+- `ChatCompletionsHandler` (`chat_completions.go`) 统一处理 LLM 交互与工具调用逻辑。
 
 ### TaskPatch 机制 (`internal/agent/patch.go`)
 
@@ -57,14 +61,14 @@ cd frontend && npm install && npm run dev
 ### 测试
 
 ```bash
-# 运行所有测试（需要数据库连接）
-go test ./test/...
+# 运行所有测试（推荐禁用缓存以确保真实性）
+go test -count=1 ./test/...
 
 # 单独运行集成测试
 go test ./test/ -run TestFullTaskWorkflow
 ```
 
-测试配置在 `test/test_config.go`，使用 `SetupTestUser()` 初始化测试用户。
+测试配置在 `test/test_config.go`，使用 `SetupTestUser()` 初始化测试用户。目前后端集成测试已全部通过。
 
 ## 代码约定
 
@@ -142,8 +146,8 @@ POST /api/sessions/:id/messages {content: "用户输入"}
   - 对话界面 → `List` + 自定义消息气泡
   - 表单 → `Form` + `Input` / `DatePicker` / `Select`
   - 图标 → `@ant-design/icons`
-- 状态管理使用 Zustand（store 文件待创建）
-- API 调用封装在独立的 service 层
+- 状态管理使用 Zustand（store 文件已创建，如 authStore.ts）
+- API 调用封装在独立的 service 层（src/api/）
 
 ## 常见任务示例
 

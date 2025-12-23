@@ -35,9 +35,14 @@ func TestAPIIntegration(t *testing.T) {
 	cfg := config.HTTPConfig{Port: "8080"}
 	jwtCfg := config.JWTConfig{Secret: "test-secret", ExpireHour: 24}
 	cryptoCfg := config.CryptoConfig{APIKeyEncryptionKey: "12345678901234567890123456789012"}
+	llmCfg := config.LLMConfig{
+		APIKey:     "test-api-key",
+		ModelName:  "test-model",
+		APIBaseURL: "https://api.test.com",
+	}
 
 	mockLLM := &mockLLMClient{}
-	server := internalHTTP.NewServer(cfg, jwtCfg, cryptoCfg, gormDB, mockLLM)
+	server := internalHTTP.NewServer(cfg, jwtCfg, cryptoCfg, llmCfg, gormDB, mockLLM)
 
 	var token string
 
@@ -113,12 +118,13 @@ func TestAPIIntegration(t *testing.T) {
 			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var resp struct {
-			Exists bool `json:"exists"`
-		}
+		var resp auth.LLMConfig
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp.Exists {
-			t.Error("expected exists to be false")
+		if resp.BaseURL != "https://api.test.com" {
+			t.Errorf("expected default BaseURL, got %s", resp.BaseURL)
+		}
+		if !resp.IsDefault {
+			t.Error("expected IsDefault to be true")
 		}
 	})
 
@@ -151,23 +157,10 @@ func TestAPIIntegration(t *testing.T) {
 			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var resp struct {
-			Exists bool `json:"exists"`
-			Config struct {
-				BaseURL string `json:"base_url"`
-				APIKey  string `json:"api_key"`
-				Model   string `json:"model"`
-			} `json:"config"`
-		}
+		var resp auth.LLMConfig
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		if !resp.Exists {
-			t.Error("expected exists to be true")
-		}
-		if resp.Config.Model != "gpt-3.5-turbo" {
-			t.Errorf("expected model gpt-3.5-turbo, got %s", resp.Config.Model)
-		}
-		if resp.Config.APIKey == "" {
-			t.Error("expected api_key to be non-empty")
+		if resp.BaseURL == "" {
+			t.Fatal("expected non-empty config")
 		}
 	})
 
@@ -317,7 +310,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 
 		var resp struct {
-			AssistantMessage string `json:"assistant_message"`
+			AssistantMessage string `json:"assistantMessage"`
 		}
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		if resp.AssistantMessage == "" {
@@ -348,12 +341,13 @@ func TestAPIIntegration(t *testing.T) {
 			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var resp struct {
-			Exists bool `json:"exists"`
-		}
+		var resp auth.LLMConfig
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp.Exists {
-			t.Error("expected exists to be false after deletion")
+		if resp.BaseURL != "https://api.test.com" {
+			t.Error("expected default config after deletion")
+		}
+		if !resp.IsDefault {
+			t.Error("expected IsDefault to be true")
 		}
 	})
 }

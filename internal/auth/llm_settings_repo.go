@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 
 	"gorm.io/gorm"
 )
@@ -19,17 +18,18 @@ func NewLLMSettingRepository(db *gorm.DB) *LLMSettingRepository {
 
 // GetByUserID 根据用户ID获取LLM配置
 func (r *LLMSettingRepository) GetByUserID(ctx context.Context, userID uint64) (*UserLLMSetting, error) {
-	var setting UserLLMSetting
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&setting).Error
+	var settings []UserLLMSetting
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Limit(1).Find(&settings).Error
 
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	return &setting, nil
+	if len(settings) == 0 {
+		return nil, nil
+	}
+
+	return &settings[0], nil
 }
 
 // Create 创建新的LLM配置

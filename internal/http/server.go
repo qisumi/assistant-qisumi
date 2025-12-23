@@ -23,11 +23,12 @@ type Server struct {
 	cfg       config.HTTPConfig
 	jwtCfg    config.JWTConfig
 	cryptoCfg config.CryptoConfig
+	llmCfg    config.LLMConfig
 	llmClient llm.Client
 }
 
 // NewServer 创建新的HTTP服务器
-func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, db *gorm.DB, llmClient llm.Client) *Server {
+func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.CryptoConfig, llmCfg config.LLMConfig, db *gorm.DB, llmClient llm.Client) *Server {
 	engine := gin.Default()
 
 	if llmClient == nil {
@@ -40,6 +41,7 @@ func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.
 		cfg:       cfg,
 		jwtCfg:    jwtCfg,
 		cryptoCfg: cryptoCfg,
+		llmCfg:    llmCfg,
 		llmClient: llmClient,
 	}
 
@@ -63,7 +65,14 @@ func (s *Server) setupRoutes() {
 
 		// LLM 设置服务
 		llmSettingRepo := auth.NewLLMSettingRepository(s.db)
-		llmSettingService := auth.NewLLMSettingService(llmSettingRepo, s.cryptoCfg.APIKeyEncryptionKey)
+		defaultLLMConfig := &auth.LLMConfig{
+			BaseURL:   s.llmCfg.APIBaseURL,
+			APIKey:    s.llmCfg.APIKey,
+			Model:     s.llmCfg.ModelName,
+			HasAPIKey: s.llmCfg.APIKey != "",
+			IsDefault: true,
+		}
+		llmSettingService := auth.NewLLMSettingService(llmSettingRepo, s.cryptoCfg.APIKeyEncryptionKey, defaultLLMConfig)
 
 		taskRepo := task.NewRepository(s.db)
 		taskSvc := task.NewService(taskRepo, s.llmClient)
@@ -85,8 +94,8 @@ func (s *Server) setupRoutes() {
 
 		// 初始化处理器
 		authHandler := NewAuthHandler(authSvc)
-		taskHandler := NewTaskHandler(taskSvc, llmSettingService)
-		sessionHandler := NewSessionHandler(agentSvc, llmSettingService)
+		taskHandler := NewTaskHandler(taskSvc, sessionRepo, llmSettingService)
+		sessionHandler := NewSessionHandler(agentSvc, sessionRepo, llmSettingService)
 		settingsHandler := NewSettingsHandler(llmSettingService)
 
 		// 认证路由

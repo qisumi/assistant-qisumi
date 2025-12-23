@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"assistant-qisumi/internal/llm"
@@ -17,6 +18,9 @@ func historyToLLMMessages(history []session.Message) []llm.Message {
 		role := m.Role
 		// 确保只出现 user/assistant/system 三种
 		if role != "user" && role != "assistant" && role != "system" {
+			continue
+		}
+		if strings.TrimSpace(m.Content) == "" {
 			continue
 		}
 		msgs = append(msgs, llm.Message{

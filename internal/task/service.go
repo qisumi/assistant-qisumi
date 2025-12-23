@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
+	"assistant-qisumi/internal/common"
 	"assistant-qisumi/internal/llm"
 )
 
@@ -55,11 +57,16 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 		return nil, errors.New("llm returned empty response")
 	}
 
-	if err := json.Unmarshal([]byte(resp.Choices[0].Message.Content), &taskData); err != nil {
-		return nil, err
+	content := common.ExtractJSON(resp.Choices[0].Message.Content)
+	if err := json.Unmarshal([]byte(content), &taskData); err != nil {
+		return nil, fmt.Errorf("failed to parse llm response: %w, content: %s", err, content)
 	}
 
 	// 4. 构造 Task 对象
+	for i := range taskData.Steps {
+		taskData.Steps[i].OrderIndex = i
+	}
+
 	t := &Task{
 		UserID:      userID,
 		Title:       taskData.Title,
