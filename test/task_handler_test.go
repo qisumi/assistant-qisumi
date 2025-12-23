@@ -2,11 +2,9 @@ package test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"assistant-qisumi/internal/auth"
@@ -69,7 +67,7 @@ func setupTaskTest(t *testing.T) (*task.Service, *auth.LLMSettingService, *gorm.
 	return taskSvc, llmSettingSvc, gormDB
 }
 
-func TestTaskHandler(t *testing.T) {
+func TestTaskHandlerValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	taskSvc, llmSettingSvc, _ := setupTaskTest(t)
 	handler := internalHTTP.NewTaskHandler(taskSvc, llmSettingSvc)
@@ -82,14 +80,7 @@ func TestTaskHandler(t *testing.T) {
 	})
 	handler.RegisterRoutes(authGroup)
 
-	// Setup LLM settings for user 1
-	llmSettingSvc.UpdateLLMSetting(context.TODO(), 1, auth.LLMSettingRequest{
-		BaseURL: "https://api.openai.com/v1",
-		APIKey:  "sk-test",
-		Model:   "gpt-4",
-	})
-
-	t.Run("create from text", func(t *testing.T) {
+	t.Run("create from text without llm config", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.CreateFromTextReq{
 			RawText: "Create a test task with one step",
 		})
@@ -98,73 +89,51 @@ func TestTaskHandler(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d, body: %s", w.Code, w.Body.String())
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d, body: %s", w.Code, w.Body.String())
 		}
 	})
 
-	t.Run("list tasks", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/api/tasks", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		tasks := resp["tasks"].([]interface{})
-		if len(tasks) == 0 {
-			t.Error("expected at least one task")
-		}
-	})
-
-	t.Run("get task", func(t *testing.T) {
-		// First get the task ID from list
-		req, _ := http.NewRequest("GET", "/api/tasks", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		tasks := resp["tasks"].([]interface{})
-		task0 := tasks[0].(map[string]interface{})
-		taskID := uint64(task0["id"].(float64))
-
-		req, _ = http.NewRequest("GET", "/api/tasks/"+strconv.FormatUint(taskID, 10), nil)
-		w = httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-	})
-
-	t.Run("create task", func(t *testing.T) {
-		reqBody, _ := json.Marshal(task.Task{
-			Title: "Manual Task",
-		})
-		req, _ := http.NewRequest("POST", "/api/tasks", bytes.NewBuffer(reqBody))
+	t.Run("create task invalid json", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/api/tasks", bytes.NewBufferString("{"))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
 		}
 	})
 
-	t.Run("patch task", func(t *testing.T) {
-		title := "Updated Title"
-		reqBody, _ := json.Marshal(task.UpdateTaskFields{
-			Title: &title,
-		})
-		req, _ := http.NewRequest("PATCH", "/api/tasks/1", bytes.NewBuffer(reqBody))
+	t.Run("get task invalid id", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/tasks/abc", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("patch task invalid id", func(t *testing.T) {
+		req, _ := http.NewRequest("PATCH", "/api/tasks/abc", bytes.NewBufferString("{}"))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("patch task invalid json", func(t *testing.T) {
+		req, _ := http.NewRequest("PATCH", "/api/tasks/1", bytes.NewBufferString("{"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
 		}
 	})
 }

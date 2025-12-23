@@ -2,7 +2,6 @@ package test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -80,7 +79,7 @@ func setupSessionTest(t *testing.T) (*agent.Service, *auth.LLMSettingService, *g
 
 func TestSessionHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	agentSvc, llmSettingSvc, gormDB := setupSessionTest(t)
+	agentSvc, llmSettingSvc, _ := setupSessionTest(t)
 	handler := internalHTTP.NewSessionHandler(agentSvc, llmSettingSvc)
 
 	router := gin.Default()
@@ -91,18 +90,21 @@ func TestSessionHandler(t *testing.T) {
 	})
 	handler.RegisterRoutes(authGroup)
 
-	// Setup LLM settings for user 1
-	llmSettingSvc.UpdateLLMSetting(context.TODO(), 1, auth.LLMSettingRequest{
-		BaseURL: "https://api.openai.com/v1",
-		APIKey:  "sk-test",
-		Model:   "gpt-4",
+	t.Run("invalid session id", func(t *testing.T) {
+		reqBody, _ := json.Marshal(internalHTTP.PostMessageReq{
+			Content: "Hello",
+		})
+		req, _ := http.NewRequest("POST", "/api/sessions/abc/messages", bytes.NewBuffer(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d, body: %s", w.Code, w.Body.String())
+		}
 	})
 
-	// Create a session
-	sess := session.Session{UserID: 1, Type: "global"}
-	gormDB.Create(&sess)
-
-	t.Run("post message", func(t *testing.T) {
+	t.Run("missing llm config", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.PostMessageReq{
 			Content: "Hello",
 		})
@@ -111,13 +113,8 @@ func TestSessionHandler(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d, body: %s", w.Code, w.Body.String())
-		}
-		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp["assistant_message"] != "Hello from agent" {
-			t.Errorf("expected \"Hello from agent\", got %v", resp["assistant_message"])
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d, body: %s", w.Code, w.Body.String())
 		}
 	})
 }

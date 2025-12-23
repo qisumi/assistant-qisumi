@@ -41,7 +41,29 @@ func TestAPIIntegration(t *testing.T) {
 
 	var token string
 
-	// 2. Test Registration
+	// 2. Health Check
+	t.Run("Health Check", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/health", nil)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	// 3. Auth Required
+	t.Run("Auth Required", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/tasks", nil)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("expected status 401, got %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	// 4. Test Registration
 	t.Run("Register User", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.RegisterReq{
 			Email:    "test@example.com",
@@ -57,7 +79,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 3. Test Login
+	// 5. Test Login
 	t.Run("Login User", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.LoginReq{
 			Email:    "test@example.com",
@@ -80,7 +102,27 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 4. Test LLM Settings
+	// 6. Test LLM Settings (Empty)
+	t.Run("Get LLM Settings Empty", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/settings/llm", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp struct {
+			Exists bool `json:"exists"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if resp.Exists {
+			t.Error("expected exists to be false")
+		}
+	})
+
+	// 7. Test LLM Settings Update
 	t.Run("Update LLM Settings", func(t *testing.T) {
 		reqBody, _ := json.Marshal(auth.LLMSettingRequest{
 			BaseURL: "https://api.openai.com/v1",
@@ -98,7 +140,38 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 5. Test Task Creation
+	// 8. Test LLM Settings Get
+	t.Run("Get LLM Settings", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/settings/llm", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp struct {
+			Exists bool `json:"exists"`
+			Config struct {
+				BaseURL string `json:"base_url"`
+				APIKey  string `json:"api_key"`
+				Model   string `json:"model"`
+			} `json:"config"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if !resp.Exists {
+			t.Error("expected exists to be true")
+		}
+		if resp.Config.Model != "gpt-3.5-turbo" {
+			t.Errorf("expected model gpt-3.5-turbo, got %s", resp.Config.Model)
+		}
+		if resp.Config.APIKey == "" {
+			t.Error("expected api_key to be non-empty")
+		}
+	})
+
+	// 9. Test Task Creation
 	var taskID uint64
 	t.Run("Create Task", func(t *testing.T) {
 		reqBody, _ := json.Marshal(task.Task{
@@ -126,7 +199,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 6. Test List Tasks
+	// 10. Test List Tasks
 	t.Run("List Tasks", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/tasks", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -146,7 +219,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 7. Test Get Task
+	// 11. Test Get Task
 	t.Run("Get Task", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/tasks/"+strconv.FormatUint(taskID, 10), nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -166,7 +239,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 8. Test Patch Task
+	// 12. Test Patch Task
 	t.Run("Patch Task", func(t *testing.T) {
 		newTitle := "Updated Task Title"
 		reqBody, _ := json.Marshal(task.UpdateTaskFields{
@@ -197,7 +270,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 9. Test Create Task From Text
+	// 13. Test Create Task From Text
 	t.Run("Create Task From Text", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.CreateFromTextReq{
 			RawText: "I need to buy milk and eggs",
@@ -221,7 +294,7 @@ func TestAPIIntegration(t *testing.T) {
 		}
 	})
 
-	// 10. Test Session Message
+	// 14. Test Session Message
 	t.Run("Post Session Message", func(t *testing.T) {
 		// Create a session first
 		sess := session.Session{
@@ -249,6 +322,38 @@ func TestAPIIntegration(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		if resp.AssistantMessage == "" {
 			t.Error("expected assistant message to be non-empty")
+		}
+	})
+
+	// 15. Test Delete LLM Settings
+	t.Run("Delete LLM Settings", func(t *testing.T) {
+		req, _ := http.NewRequest("DELETE", "/api/settings/llm", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+	})
+
+	// 16. Test LLM Settings After Delete
+	t.Run("Get LLM Settings After Delete", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/settings/llm", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp struct {
+			Exists bool `json:"exists"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if resp.Exists {
+			t.Error("expected exists to be false after deletion")
 		}
 	})
 }

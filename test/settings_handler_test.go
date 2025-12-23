@@ -44,23 +44,7 @@ func TestSettingsHandler(t *testing.T) {
 	})
 	handler.RegisterRoutes(authGroup)
 
-	t.Run("update settings", func(t *testing.T) {
-		reqBody, _ := json.Marshal(auth.LLMSettingRequest{
-			BaseURL: "https://api.openai.com/v1",
-			APIKey:  "sk-test-key",
-			Model:   "gpt-4",
-		})
-		req, _ := http.NewRequest("POST", "/api/settings/llm", bytes.NewBuffer(reqBody))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-	})
-
-	t.Run("get settings", func(t *testing.T) {
+	t.Run("get settings empty", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/api/settings/llm", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -70,32 +54,19 @@ func TestSettingsHandler(t *testing.T) {
 		}
 		var resp map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp["exists"] != true {
-			t.Error("expected exists to be true")
-		}
-		config := resp["config"].(map[string]interface{})
-		if config["model"] != "gpt-4" {
-			t.Errorf("expected model gpt-4, got %v", config["model"])
+		if resp["exists"] != false {
+			t.Error("expected exists to be false")
 		}
 	})
 
-	t.Run("delete settings", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", "/api/settings/llm", nil)
+	t.Run("update settings invalid body", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/api/settings/llm", bytes.NewBufferString("{"))
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-
-		// Verify deletion
-		req, _ = http.NewRequest("GET", "/api/settings/llm", nil)
-		w = httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var resp map[string]interface{}
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp["exists"] != false {
-			t.Error("expected exists to be false after deletion")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", w.Code)
 		}
 	})
 }

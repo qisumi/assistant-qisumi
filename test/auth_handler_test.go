@@ -39,21 +39,6 @@ func TestAuthHandler_Register(t *testing.T) {
 	api := router.Group("/api")
 	handler.RegisterRoutes(api.Group("/auth"))
 
-	t.Run("successful registration", func(t *testing.T) {
-		reqBody, _ := json.Marshal(internalHTTP.RegisterReq{
-			Email:    "test@example.com",
-			Password: "password123",
-		})
-		req, _ := http.NewRequest("POST", "/api/auth/register", bytes.NewBuffer(reqBody))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusCreated {
-			t.Errorf("expected status 201, got %d", w.Code)
-		}
-	})
-
 	t.Run("invalid email", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.RegisterReq{
 			Email:    "invalid-email",
@@ -96,26 +81,6 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	// Pre-register a user
 	svc.Register(context.TODO(), "test@example.com", "password123")
-
-	t.Run("successful login", func(t *testing.T) {
-		reqBody, _ := json.Marshal(internalHTTP.LoginReq{
-			Email:    "test@example.com",
-			Password: "password123",
-		})
-		req, _ := http.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(reqBody))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", w.Code)
-		}
-		var resp map[string]string
-		json.Unmarshal(w.Body.Bytes(), &resp)
-		if resp["token"] == "" {
-			t.Error("expected token in response")
-		}
-	})
 
 	t.Run("invalid credentials", func(t *testing.T) {
 		reqBody, _ := json.Marshal(internalHTTP.LoginReq{
