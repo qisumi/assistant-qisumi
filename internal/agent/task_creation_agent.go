@@ -94,7 +94,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	var taskData struct {
 		Title       string             `json:"title"`
 		Description string             `json:"description"`
-		DueAt       *time.Time         `json:"due_at,omitempty"`
+		DueAt       *task.FlexibleTime `json:"due_at,omitempty"`
 		Priority    string             `json:"priority"`
 		Steps       []taskCreationStep `json:"steps"`
 	}
@@ -109,7 +109,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	// 4. 生成TaskPatches
 	var dueAtStr *string
 	if taskData.DueAt != nil {
-		s := taskData.DueAt.Format(time.RFC3339)
+		s := taskData.DueAt.ToTime().Format(time.RFC3339)
 		dueAtStr = &s
 	}
 

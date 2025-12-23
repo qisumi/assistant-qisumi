@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -105,6 +106,12 @@ func TestSessionHandler(t *testing.T) {
 	})
 
 	t.Run("missing llm config", func(t *testing.T) {
+		// 首先创建一个 session
+		sess, err := sessionRepo.GetGlobalSessionOrCreate(context.Background(), 1)
+		if err != nil {
+			t.Fatalf("failed to create session: %v", err)
+		}
+
 		reqBody, _ := json.Marshal(internalHTTP.PostMessageReq{
 			Content: "Hello",
 		})
@@ -116,5 +123,6 @@ func TestSessionHandler(t *testing.T) {
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("expected status 400, got %d, body: %s", w.Code, w.Body.String())
 		}
+		_ = sess // 使用 sess 变量
 	})
 }

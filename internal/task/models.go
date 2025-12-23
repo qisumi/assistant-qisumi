@@ -3,17 +3,17 @@ package task
 import "time"
 
 type Task struct {
-	ID           uint64     `gorm:"primaryKey;column:id" json:"id"`
-	UserID       uint64     `gorm:"column:user_id;not null" json:"userId"`
-	Title        string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
-	Description  string     `gorm:"column:description;type:text" json:"description"`
-	Status       string     `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
-	Priority     string     `gorm:"column:priority;type:varchar(20);default:'medium'" json:"priority"`
-	IsFocusToday bool       `gorm:"column:is_focus_today;default:false" json:"isFocusToday"`
-	DueAt        *time.Time `gorm:"column:due_at" json:"dueAt,omitempty"`
-	CreatedFrom  string     `gorm:"column:created_from;type:text" json:"createdFrom,omitempty"`
-	CreatedAt    time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID           uint64        `gorm:"primaryKey;column:id" json:"id"`
+	UserID       uint64        `gorm:"column:user_id;not null" json:"userId"`
+	Title        string        `gorm:"column:title;type:varchar(255);not null" json:"title"`
+	Description  string        `gorm:"column:description;type:text" json:"description"`
+	Status       string        `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
+	Priority     string        `gorm:"column:priority;type:varchar(20);default:'medium'" json:"priority"`
+	IsFocusToday bool          `gorm:"column:is_focus_today;default:false" json:"isFocusToday"`
+	DueAt        *FlexibleTime `gorm:"column:due_at" json:"dueAt,omitempty"`
+	CreatedFrom  string        `gorm:"column:created_from;type:text" json:"createdFrom,omitempty"`
+	CreatedAt    time.Time     `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt    time.Time     `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 
 	Steps []TaskStep `gorm:"foreignKey:TaskID" json:"steps,omitempty"`
 }
@@ -21,18 +21,18 @@ type Task struct {
 func (Task) TableName() string { return "tasks" }
 
 type TaskStep struct {
-	ID             uint64     `gorm:"primaryKey;column:id" json:"id"`
-	TaskID         uint64     `gorm:"column:task_id;not null" json:"taskId"`
-	OrderIndex     int        `gorm:"column:order_index;not null;default:0" json:"orderIndex"`
-	Title          string     `gorm:"column:title;type:varchar(255);not null" json:"title"`
-	Detail         string     `gorm:"column:detail;type:text" json:"detail"`
-	Status         string     `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
-	BlockingReason string     `gorm:"column:blocking_reason;type:text" json:"blockingReason"`
-	EstimateMin    *int       `gorm:"column:estimate_minutes" json:"estimateMinutes,omitempty"`
-	PlannedStart   *time.Time `gorm:"column:planned_start" json:"plannedStart,omitempty"`
-	PlannedEnd     *time.Time `gorm:"column:planned_end" json:"plannedEnd,omitempty"`
-	CreatedAt      time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt      time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID             uint64        `gorm:"primaryKey;column:id" json:"id"`
+	TaskID         uint64        `gorm:"column:task_id;not null" json:"taskId"`
+	OrderIndex     int           `gorm:"column:order_index;not null;default:0" json:"orderIndex"`
+	Title          string        `gorm:"column:title;type:varchar(255);not null" json:"title"`
+	Detail         string        `gorm:"column:detail;type:text" json:"detail"`
+	Status         string        `gorm:"column:status;type:varchar(20);not null;default:'todo'" json:"status"`
+	BlockingReason string        `gorm:"column:blocking_reason;type:text" json:"blockingReason"`
+	EstimateMin    *int          `gorm:"column:estimate_minutes" json:"estimateMinutes,omitempty"`
+	PlannedStart   *FlexibleTime `gorm:"column:planned_start" json:"plannedStart,omitempty"`
+	PlannedEnd     *FlexibleTime `gorm:"column:planned_end" json:"plannedEnd,omitempty"`
+	CreatedAt      time.Time     `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt      time.Time     `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (TaskStep) TableName() string { return "task_steps" }
@@ -60,7 +60,7 @@ type UpdateTaskFields struct {
 	Status       *string `json:"status,omitempty"`   // "todo" | "in_progress" | "done" | "cancelled"
 	Priority     *string `json:"priority,omitempty"` // "low" | "medium" | "high"
 	IsFocusToday *bool   `json:"isFocusToday,omitempty"`
-	DueAt        *string `json:"dueAt,omitempty"` // ISO 8601
+	DueAt        *string `json:"dueAt,omitempty"` // RFC3339
 }
 
 type UpdateStepFields struct {
@@ -70,8 +70,8 @@ type UpdateStepFields struct {
 	BlockingReason *string `json:"blockingReason,omitempty"`
 	EstimateMin    *int    `json:"estimateMinutes,omitempty"`
 	OrderIndex     *int    `json:"orderIndex,omitempty"`
-	PlannedStart   *string `json:"plannedStart,omitempty"` // ISO 8601
-	PlannedEnd     *string `json:"plannedEnd,omitempty"`   // ISO 8601
+	PlannedStart   *string `json:"plannedStart,omitempty"` // RFC3339
+	PlannedEnd     *string `json:"plannedEnd,omitempty"`   // RFC3339
 }
 
 type NewStepRecord struct {

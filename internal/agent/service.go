@@ -40,8 +40,7 @@ func NewService(
 	}
 
 	// 初始化工具执行器映射
-	toolMap := make(map[string]ToolExecutor)
-	// 这里可以根据需要添加工具执行器
+	toolMap := NewToolExecutors()
 
 	// 初始化Chat Completions处理器
 	chatCompletionsHandler := NewChatCompletionsHandler(llmClient, toolMap)
@@ -246,11 +245,49 @@ func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *
 		if err := s.dependencySvc.OnTaskOrStepDone(ctx, taskID, &stepID); err != nil {
 			return err
 		}
+
+		// 自动更新任务状态：
+		// - 如果有步骤完成，任务状态从 todo 变为 in_progress
+		// - 如果所有步骤都完成，任务状态变为 done
+		t, err := repo.GetTaskWithSteps(ctx, userID, taskID)
+		if err != nil {
+			return err
+		}
+
+		// 检查所有步骤状态
+		allStepsDone := true
+		hasSteps := len(t.Steps) > 0
+		for _, step := range t.Steps {
+			if step.Status != "done" {
+				allStepsDone = false
+				break
+			}
+		}
+
+		if hasSteps {
+			if allStepsDone {
+				// 所有步骤完成，任务状态设为 done
+				status := "done"
+				if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, task.UpdateTaskFields{
+					Status: &status,
+				}); err != nil {
+					return err
+				}
+			} else if t.Status == "todo" {
+				// 有步骤完成但未全部完成，任务状态设为 in_progress
+				status := "in_progress"
+				if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, task.UpdateTaskFields{
+					Status: &status,
+				}); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
 
-func (s *Service) applyInsertNewSteps(ctx context.Context, userID uint64, tx *gorm.DB, taskID uint64, parentStepID *uint64, steps []task.NewStepRecord) error {
+func (s *Service) applyInsertNewSteps(ctx context.Context, _ uint64, tx *gorm.DB, taskID uint64, _ *uint64, steps []task.NewStepRecord) error {
 	repo := s.taskRepo.WithTx(tx)
 	var taskSteps []task.TaskStep
 	for i, st := range steps {
@@ -267,7 +304,7 @@ func (s *Service) applyInsertNewSteps(ctx context.Context, userID uint64, tx *go
 	return repo.AddSteps(ctx, taskSteps)
 }
 
-func (s *Service) applyInsertDependencies(ctx context.Context, userID uint64, tx *gorm.DB, items []task.DependencyItem) error {
+func (s *Service) applyInsertDependencies(ctx context.Context, _ uint64, tx *gorm.DB, items []task.DependencyItem) error {
 	repo := s.taskRepo.WithTx(tx)
 	var deps []task.TaskDependency
 	for _, it := range items {

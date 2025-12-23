@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -46,7 +45,7 @@ func (r *Repository) InsertTaskWithSteps(ctx context.Context, t *Task) error {
 func (r *Repository) ListTasks(ctx context.Context, userID uint64) ([]Task, error) {
 	var tasks []Task
 	err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
+		Where("user_id = ? AND status != ?", userID, "done").
 		Order("created_at DESC").
 		Find(&tasks).Error
 	return tasks, err
@@ -158,11 +157,12 @@ func buildTaskUpdateMap(fields UpdateTaskFields) (map[string]any, error) {
 		if *fields.DueAt == "" {
 			updates["due_at"] = nil
 		} else {
-			t, err := time.Parse(time.RFC3339, *fields.DueAt)
+			// 使用 FlexibleTime 解析多种日期格式
+			ft, err := ParseFlexibleTime(*fields.DueAt)
 			if err != nil {
 				return nil, err
 			}
-			updates["due_at"] = t
+			updates["due_at"] = ft.ToTime()
 		}
 	}
 
@@ -194,22 +194,24 @@ func buildStepUpdateMap(fields UpdateStepFields) (map[string]any, error) {
 		if *fields.PlannedStart == "" {
 			updates["planned_start"] = nil
 		} else {
-			t, err := time.Parse(time.RFC3339, *fields.PlannedStart)
+			// 使用 FlexibleTime 解析多种日期格式
+			ft, err := ParseFlexibleTime(*fields.PlannedStart)
 			if err != nil {
 				return nil, err
 			}
-			updates["planned_start"] = t
+			updates["planned_start"] = ft.ToTime()
 		}
 	}
 	if fields.PlannedEnd != nil {
 		if *fields.PlannedEnd == "" {
 			updates["planned_end"] = nil
 		} else {
-			t, err := time.Parse(time.RFC3339, *fields.PlannedEnd)
+			// 使用 FlexibleTime 解析多种日期格式
+			ft, err := ParseFlexibleTime(*fields.PlannedEnd)
 			if err != nil {
 				return nil, err
 			}
-			updates["planned_end"] = t
+			updates["planned_end"] = ft.ToTime()
 		}
 	}
 

@@ -51,7 +51,7 @@ func TestFullTaskWorkflow(t *testing.T) {
 	t.Log("=== Stage 1: Creating Task and Steps ===")
 
 	// 创建测试任务
-	dueAt := time.Now().Add(7 * 24 * time.Hour)
+	dueAt := task.FlexibleTime{Time: time.Now().Add(7 * 24 * time.Hour)}
 	testTask := task.Task{
 		UserID:      userID,
 		Title:       "Integration Test Task",

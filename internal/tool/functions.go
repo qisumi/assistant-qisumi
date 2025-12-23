@@ -2,7 +2,6 @@ package tool
 
 import (
 	"assistant-qisumi/internal/task"
-	"time"
 )
 
 // UpdateTaskArguments update_task 工具参数
@@ -169,32 +168,31 @@ type TaskFieldUpdater func(task *task.Task, fields map[string]interface{}) error
 type StepFieldUpdater func(step *task.TaskStep, fields map[string]interface{}) error
 
 // ApplyTaskFields 应用任务字段更新
-func ApplyTaskFields(task *task.Task, fields map[string]interface{}) error {
+func ApplyTaskFields(t *task.Task, fields map[string]interface{}) error {
 	for key, value := range fields {
 		switch key {
 		case "title":
 			if title, ok := value.(string); ok {
-				task.Title = title
+				t.Title = title
 			}
 		case "description":
 			if desc, ok := value.(string); ok {
-				task.Description = desc
+				t.Description = desc
 			}
 		case "status":
 			if status, ok := value.(string); ok {
-				task.Status = status
+				t.Status = status
 			}
 		case "priority":
 			if priority, ok := value.(string); ok {
-				task.Priority = priority
+				t.Priority = priority
 			}
 		case "due_at":
 			if dueAt, ok := value.(string); ok && dueAt != "" {
-				parsedTime, err := time.Parse(time.RFC3339, dueAt)
-				if err != nil {
-					return err
+				// 使用 FlexibleTime 解析多种日期格式
+				if ft, err := task.ParseFlexibleTime(dueAt); err == nil {
+					t.DueAt = ft
 				}
-				task.DueAt = &parsedTime
 			}
 		}
 	}
@@ -202,49 +200,47 @@ func ApplyTaskFields(task *task.Task, fields map[string]interface{}) error {
 }
 
 // ApplyStepFields 应用步骤字段更新
-func ApplyStepFields(step *task.TaskStep, fields map[string]interface{}) error {
+func ApplyStepFields(s *task.TaskStep, fields map[string]interface{}) error {
 	for key, value := range fields {
 		switch key {
 		case "title":
 			if title, ok := value.(string); ok {
-				step.Title = title
+				s.Title = title
 			}
 		case "detail":
 			if detail, ok := value.(string); ok {
-				step.Detail = detail
+				s.Detail = detail
 			}
 		case "status":
 			if status, ok := value.(string); ok {
-				step.Status = status
+				s.Status = status
 			}
 		case "blocking_reason":
 			if reason, ok := value.(string); ok {
-				step.BlockingReason = reason
+				s.BlockingReason = reason
 			}
 		case "estimate_minutes":
 			if estimate, ok := value.(float64); ok {
 				intEstimate := int(estimate)
-				step.EstimateMin = &intEstimate
+				s.EstimateMin = &intEstimate
 			}
 		case "order_index":
 			if order, ok := value.(float64); ok {
-				step.OrderIndex = int(order)
+				s.OrderIndex = int(order)
 			}
 		case "planned_start":
 			if plannedStart, ok := value.(string); ok && plannedStart != "" {
-				parsedTime, err := time.Parse(time.RFC3339, plannedStart)
-				if err != nil {
-					return err
+				// 使用 FlexibleTime 解析多种日期格式
+				if ft, err := task.ParseFlexibleTime(plannedStart); err == nil {
+					s.PlannedStart = ft
 				}
-				step.PlannedStart = &parsedTime
 			}
 		case "planned_end":
 			if plannedEnd, ok := value.(string); ok && plannedEnd != "" {
-				parsedTime, err := time.Parse(time.RFC3339, plannedEnd)
-				if err != nil {
-					return err
+				// 使用 FlexibleTime 解析多种日期格式
+				if ft, err := task.ParseFlexibleTime(plannedEnd); err == nil {
+					s.PlannedEnd = ft
 				}
-				step.PlannedEnd = &parsedTime
 			}
 		}
 	}

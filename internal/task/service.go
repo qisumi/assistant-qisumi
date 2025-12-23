@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"assistant-qisumi/internal/common"
 	"assistant-qisumi/internal/llm"
@@ -46,11 +45,11 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 
 	// 3. 解析 JSON -> Task + Steps
 	var taskData struct {
-		Title       string     `json:"title"`
-		Description string     `json:"description"`
-		DueAt       *time.Time `json:"due_at,omitempty"`
-		Priority    string     `json:"priority"`
-		Steps       []TaskStep `json:"steps"`
+		Title       string         `json:"title"`
+		Description string         `json:"description"`
+		DueAt       *FlexibleTime  `json:"due_at,omitempty"`
+		Priority    string         `json:"priority"`
+		Steps       []TaskStep     `json:"steps"`
 	}
 
 	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
