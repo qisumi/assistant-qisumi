@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"assistant-qisumi/internal/dependency"
@@ -125,6 +126,10 @@ func (s *Service) HandleUserMessage(
 		if err != nil {
 			return nil, fmt.Errorf("transaction failed: %w", err)
 		}
+	}
+
+	if strings.TrimSpace(resp.AssistantMessage) == "" {
+		resp.AssistantMessage = buildFallbackAssistantMessage(agentName, resp.TaskPatches)
 	}
 
 	// 2. 写 assistant 消息: role=assistant, agent_name=ag.Name()

@@ -109,3 +109,15 @@ func (s *Service) UpdateStep(ctx context.Context, userID, taskID, stepID uint64,
 func (s *Service) CreateTask(ctx context.Context, t *Task) error {
 	return s.repo.InsertTaskWithSteps(ctx, t)
 }
+
+// DeleteTask 删除任务
+func (s *Service) DeleteTask(ctx context.Context, userID, taskID uint64) error {
+	// 验证任务是否存在且属于该用户
+	_, err := s.repo.GetTaskWithSteps(ctx, userID, taskID)
+	if err != nil {
+		return err
+	}
+
+	// 执行删除
+	return s.repo.DeleteTask(ctx, userID, taskID)
+}

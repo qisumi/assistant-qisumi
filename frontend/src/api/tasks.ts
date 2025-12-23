@@ -18,3 +18,8 @@ export async function createTaskFromText(rawText: string): Promise<TaskDetailRes
   });
   return data;
 }
+
+// 删除任务
+export async function deleteTask(taskId: string | number): Promise<void> {
+  await apiClient.delete(`/tasks/${taskId}`);
+}

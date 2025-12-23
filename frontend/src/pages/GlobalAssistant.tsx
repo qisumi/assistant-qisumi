@@ -17,7 +17,6 @@ const GlobalAssistant: React.FC = () => {
     data: session,
     isLoading: loadingSession,
     isError: sessionError,
-    refetch: refetchSession,
   } = useQuery({
     queryKey: ['globalSession'],
     queryFn: () => getOrCreateGlobalSession(),

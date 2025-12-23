@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -10,6 +11,7 @@ import (
 	"assistant-qisumi/internal/task"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type TaskHandler struct {
@@ -32,6 +34,7 @@ func (h *TaskHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/tasks", h.createTask)
 	rg.GET("/tasks/:id", h.getTask)
 	rg.PATCH("/tasks/:id", h.patchTask)
+	rg.DELETE("/tasks/:id", h.deleteTask)
 }
 
 type CreateFromTextReq struct {
@@ -164,4 +167,26 @@ func (h *TaskHandler) createTask(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"task": t})
+}
+
+// deleteTask 删除任务
+func (h *TaskHandler) deleteTask(c *gin.Context) {
+	userID := GetUserID(c)
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	if err := h.taskSvc.DeleteTask(c, userID, id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "task deleted successfully"})
 }

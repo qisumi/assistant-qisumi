@@ -215,3 +215,47 @@ func buildStepUpdateMap(fields UpdateStepFields) (map[string]any, error) {
 
 	return updates, nil
 }
+
+// DeleteTask 删除任务及其关联数据
+func (r *Repository) DeleteTask(ctx context.Context, userID, taskID uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. 删除任务步骤
+		if err := tx.Where("task_id = ?", taskID).Delete(&TaskStep{}).Error; err != nil {
+			return err
+		}
+
+		// 2. 删除任务依赖（作为前置或后置任务）
+		if err := tx.Where("predecessor_task_id = ? OR successor_task_id = ?", taskID, taskID).Delete(&TaskDependency{}).Error; err != nil {
+			return err
+		}
+
+		// 3. 删除关联的会话
+		var sessionIDs []uint64
+		if err := tx.Table("sessions").Where("task_id = ? AND user_id = ?", taskID, userID).Pluck("id", &sessionIDs).Error; err != nil {
+			return err
+		}
+
+		// 4. 删除会话的消息
+		if len(sessionIDs) > 0 {
+			if err := tx.Table("messages").Where("session_id IN ?", sessionIDs).Delete(nil).Error; err != nil {
+				return err
+			}
+		}
+
+		// 5. 删除会话
+		if err := tx.Table("sessions").Where("task_id = ? AND user_id = ?", taskID, userID).Delete(nil).Error; err != nil {
+			return err
+		}
+
+		// 6. 删除任务本身（带 user_id 验证）
+		result := tx.Where("id = ? AND user_id = ?", taskID, userID).Delete(&Task{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		return nil
+	})
+}

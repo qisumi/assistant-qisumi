@@ -18,6 +18,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   sending = false,
   height = 500,
 }) => {
+  const agentNameLabels: Record<string, string> = {
+    executor: '执行器',
+    planner: '规划器',
+    summarizer: '总结器',
+    global: '全局助手',
+    system: '系统',
+  };
+
   const [inputValue, setInputValue] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -48,61 +56,78 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       >
         <List
           dataSource={messages}
-          renderItem={(item) => (
-            <List.Item style={{ border: 'none', padding: '8px 0' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: item.role === 'user' ? 'row-reverse' : 'row',
-                  width: '100%',
-                  alignItems: 'flex-start',
-                }}
-              >
-                <Avatar
-                  icon={item.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
-                  style={{
-                    backgroundColor: item.role === 'user' ? '#1677ff' : '#52c41a',
-                    flexShrink: 0,
-                  }}
-                />
+          renderItem={(item) => {
+            const isUser = item.role === 'user';
+            const isSystem = item.role === 'system';
+            const agentLabel = item.agentName ? (agentNameLabels[item.agentName] || item.agentName) : null;
+            const senderLabel = isUser ? '我' : isSystem ? '系统' : '助手';
+            const trimmedContent = item.content?.trim() ?? '';
+            const isEmptyContent = trimmedContent.length === 0;
+            const emptyHint = isUser ? '（空消息）' : `${agentLabel || '助手'}暂未返回内容`;
+
+            return (
+              <List.Item style={{ border: 'none', padding: '8px 0' }}>
                 <div
                   style={{
-                    margin: item.role === 'user' ? '0 12px 0 0' : '0 0 0 12px',
-                    maxWidth: '70%',
+                    display: 'flex',
+                    flexDirection: isUser ? 'row-reverse' : 'row',
+                    width: '100%',
+                    alignItems: 'flex-start',
                   }}
                 >
+                  <Avatar
+                    icon={isUser ? <UserOutlined /> : <RobotOutlined />}
+                    style={{
+                      backgroundColor: isUser ? '#1677ff' : '#52c41a',
+                      flexShrink: 0,
+                    }}
+                  />
                   <div
                     style={{
-                      textAlign: item.role === 'user' ? 'right' : 'left',
-                      marginBottom: '4px',
+                      margin: isUser ? '0 12px 0 0' : '0 0 0 12px',
+                      maxWidth: '70%',
                     }}
                   >
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {item.role === 'user' ? '我' : (item.agentName || '助手')}
-                    </Text>
-                    {item.agentName && (
-                      <Tag style={{ marginLeft: '8px' }}>
-                        {item.agentName}
-                      </Tag>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      backgroundColor: item.role === 'user' ? '#1677ff' : '#fff',
-                      color: item.role === 'user' ? '#fff' : 'inherit',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {item.content}
+                    <div
+                      style={{
+                        textAlign: isUser ? 'right' : 'left',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        {senderLabel}
+                      </Text>
+                      {!isSystem && agentLabel && (
+                        <Tag style={{ marginLeft: '8px' }}>
+                          {agentLabel}
+                        </Tag>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        backgroundColor: isEmptyContent ? '#fffbe6' : isUser ? '#1677ff' : '#fff',
+                        color: isEmptyContent ? '#8c8c8c' : isUser ? '#fff' : 'inherit',
+                        border: isEmptyContent ? '1px dashed #d9d9d9' : 'none',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {isEmptyContent ? (
+                        <Text type="secondary" style={{ fontStyle: 'italic' }}>
+                          {emptyHint}
+                        </Text>
+                      ) : (
+                        item.content
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </List.Item>
-          )}
+              </List.Item>
+            );
+          }}
         />
       </div>
       <Space.Compact style={{ width: '100%' }}>

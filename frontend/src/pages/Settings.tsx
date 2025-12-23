@@ -58,7 +58,7 @@ const Settings: React.FC = () => {
         <Divider orientation="left">LLM 配置</Divider>
         <Alert
           message="安全提示"
-          description="您的 API Key 将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的 Key。"
+          description="您的 API 密钥将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的密钥。"
           type="info"
           showIcon
           style={{ marginBottom: 24 }}
@@ -74,19 +74,19 @@ const Settings: React.FC = () => {
           }}
         >
           <Form.Item
-            label="API Base URL"
+            label="API 基础地址"
             name="base_url"
-            rules={[{ required: true, message: '请输入 Base URL' }]}
-            tooltip="OpenAI 兼容接口的地址，例如 https://api.openai.com/v1"
+            rules={[{ required: true, message: '请输入 API 基础地址' }]}
+            tooltip="OpenAI 兼容接口的基础地址，例如 https://api.openai.com/v1"
           >
             <Input prefix={<GlobalOutlined />} placeholder="https://api.openai.com/v1" />
           </Form.Item>
 
           <Form.Item
-            label="API Key"
+            label="API 密钥"
             name="api_key"
-            rules={[{ required: !settings, message: '请输入 API Key' }]}
-            tooltip={settings ? "留空表示不修改已保存的 Key" : "请输入您的 API Key"}
+            rules={[{ required: !settings, message: '请输入 API 密钥' }]}
+            tooltip={settings ? "留空表示不修改已保存的密钥" : "请输入您的 API 密钥"}
           >
             <Input.Password prefix={<LockOutlined />} placeholder={settings ? "••••••••••••••••" : "sk-..."} />
           </Form.Item>

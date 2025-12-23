@@ -53,7 +53,7 @@ const AppLayout: React.FC = () => {
         <Layout style={{ minHeight: '100vh' }}>
             <Sider breakpoint="lg" collapsedWidth="0">
                 <div style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
-                    Qisumi Assistant
+                    Qisumi 助手
                 </div>
                 <Menu
                     theme="dark"

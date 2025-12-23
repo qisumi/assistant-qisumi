@@ -1,22 +1,45 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty } from 'antd';
-import { PlusOutlined, FileTextOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage } from 'antd';
+import { PlusOutlined, FileTextOutlined, ClockCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-import { fetchTasks } from '@/api/tasks';
+import { fetchTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';
 
 const { Title, Text } = Typography;
 
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: tasks, isLoading, isError } = useQuery({
     queryKey: ['tasks'],
     queryFn: fetchTasks,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => {
+      antdMessage.success('任务已删除');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: () => {
+      antdMessage.error('删除失败，请稍后重试');
+    },
+  });
+
+  const handleDeleteTask = (taskId: number, taskTitle: string) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定要删除任务「${taskTitle}」吗？此操作不可恢复。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => deleteMutation.mutate(taskId),
+    });
+  };
 
   const getStatusTag = (status: string) => {
     const colors: Record<string, string> = {
@@ -90,7 +113,20 @@ const Tasks: React.FC = () => {
               <Card
                 hoverable
                 title={task.title}
-                extra={getStatusTag(task.status)}
+                extra={
+                  <Space>
+                    {getStatusTag(task.status)}
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTask(task.id, task.title);
+                      }}
+                    />
+                  </Space>
+                }
                 onClick={() => navigate(`/tasks/${task.id}`)}
               >
                 <Space direction="vertical" style={{ width: '100%' }}>
