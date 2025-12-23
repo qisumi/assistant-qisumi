@@ -8,9 +8,11 @@ import (
 
 	"assistant-qisumi/internal/dependency"
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/logger"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -74,13 +76,29 @@ func (s *Service) HandleUserMessage(
 	userInput string,
 	cfg llm.Config,
 ) (*AgentResponse, error) {
+	// 记录请求开始
+	logger.Logger.Info("Agent请求开始",
+		zap.String("user_id", fmt.Sprintf("%d", userID)),
+		zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+		zap.String("user_input", userInput),
+		zap.String("model", cfg.Model),
+		zap.String("base_url", cfg.BaseURL),
+	)
 
 	sess, err := s.sessionRepo.GetSession(ctx, sessionID)
 	if err != nil {
+		logger.Logger.Error("获取会话失败",
+			zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+			zap.String("error", err.Error()),
+		)
 		return nil, fmt.Errorf("GetSession failed: %w", err)
 	}
 	msgs, err := s.sessionRepo.ListRecentMessages(ctx, sessionID, 20)
 	if err != nil {
+		logger.Logger.Error("获取历史消息失败",
+			zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+			zap.String("error", err.Error()),
+		)
 		return nil, fmt.Errorf("ListRecentMessages failed: %w", err)
 	}
 
@@ -101,26 +119,53 @@ func (s *Service) HandleUserMessage(
 		}
 	}
 
+	// 获取依赖关系信息（用于Executor判断隐含前置条件）
+	var dependencies []task.TaskDependency
+	if sess.TaskID != nil {
+		dependencies, err = s.taskRepo.GetAllUserDependencies(ctx, userID)
+		if err != nil {
+			logger.Logger.Warn("获取依赖关系失败，将继续处理",
+				zap.String("error", err.Error()),
+			)
+			// 不中断流程，依赖关系为空时LLM不会执行依赖处理
+		}
+	}
+
 	req := AgentRequest{
-		UserID:    userID,
-		Session:   sess,
-		Task:      t,
-		Tasks:     allTasks,
-		Messages:  msgs,
-		UserInput: userInput,
-		Now:       time.Now(),
-		LLMConfig: cfg,
+		UserID:       userID,
+		Session:      sess,
+		Task:         t,
+		Tasks:        allTasks,
+		Dependencies: dependencies,
+		Messages:     msgs,
+		UserInput:    userInput,
+		Now:          time.Now(),
+		LLMConfig:    cfg,
 	}
 
 	agentName := s.router.Route(req)
+	logger.Logger.Info("路由决策完成",
+		zap.String("agent", agentName),
+		zap.String("session_type", sess.Type),
+		zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+	)
+
 	ag, ok := s.agents[agentName]
 	if !ok {
 		// fallback to executor
+		logger.Logger.Warn("Agent未找到，使用fallback",
+			zap.String("requested_agent", agentName),
+			zap.String("fallback_agent", "executor"),
+		)
 		ag = s.agents["executor"]
 	}
 
 	resp, err := ag.Handle(req)
 	if err != nil {
+		logger.Logger.Error("Agent处理失败",
+			zap.String("agent", agentName),
+			zap.String("error", err.Error()),
+		)
 		return nil, fmt.Errorf("%s agent Handle failed: %w", agentName, err)
 	}
 
@@ -136,6 +181,10 @@ func (s *Service) HandleUserMessage(
 
 	// 1. 开启事务: 应用 TaskPatches 更新 task & steps & dependencies
 	if len(resp.TaskPatches) > 0 {
+		logger.Logger.Info("开始应用TaskPatches",
+			zap.Int("patch_count", len(resp.TaskPatches)),
+			zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+		)
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// 应用TaskPatches
 			if err := s.applyTaskPatches(ctx, userID, tx, resp.TaskPatches); err != nil {
@@ -144,8 +193,14 @@ func (s *Service) HandleUserMessage(
 			return nil
 		})
 		if err != nil {
+			logger.Logger.Error("应用TaskPatches失败",
+				zap.String("error", err.Error()),
+			)
 			return nil, fmt.Errorf("transaction failed: %w", err)
 		}
+		logger.Logger.Info("TaskPatches应用成功",
+			zap.Int("patch_count", len(resp.TaskPatches)),
+		)
 	}
 
 	if strings.TrimSpace(resp.AssistantMessage) == "" {
@@ -162,6 +217,13 @@ func (s *Service) HandleUserMessage(
 	if err := s.sessionRepo.CreateMessage(ctx, &assistantMsg); err != nil {
 		return nil, fmt.Errorf("CreateMessage failed: %w", err)
 	}
+
+	logger.Logger.Info("Agent请求完成",
+		zap.String("agent", agentName),
+		zap.String("session_id", fmt.Sprintf("%d", sessionID)),
+		zap.Int("task_patches_count", len(resp.TaskPatches)),
+		zap.Int("response_length", len(resp.AssistantMessage)),
+	)
 
 	return resp, nil
 }

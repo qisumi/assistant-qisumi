@@ -31,6 +31,7 @@ func NewTaskHandler(taskSvc *task.Service, sessionRepo *session.Repository, llmS
 func (h *TaskHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/tasks/from-text", h.createFromText)
 	rg.GET("/tasks", h.listTasks)
+	rg.GET("/tasks/completed", h.listCompletedTasks)
 	rg.POST("/tasks", h.createTask)
 	rg.GET("/tasks/:id", h.getTask)
 	rg.PATCH("/tasks/:id", h.patchTask)
@@ -90,6 +91,20 @@ func (h *TaskHandler) createFromText(c *gin.Context) {
 func (h *TaskHandler) listTasks(c *gin.Context) {
 	userID := GetUserID(c)
 	tasks, err := h.taskSvc.ListTasks(c, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"tasks": tasks,
+		"total": len(tasks),
+	})
+}
+
+// listCompletedTasks 获取已完成任务列表
+func (h *TaskHandler) listCompletedTasks(c *gin.Context) {
+	userID := GetUserID(c)
+	tasks, err := h.taskSvc.ListCompletedTasks(c, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

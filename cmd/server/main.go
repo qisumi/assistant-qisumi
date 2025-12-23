@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// 初始化logger
-	if err := logger.Init(execDir); err != nil {
+	if err := logger.Init(execDir, cfg.Log.Level); err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer logger.Logger.Sync()

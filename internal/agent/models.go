@@ -9,14 +9,15 @@ import (
 )
 
 type AgentRequest struct {
-	UserID    uint64
-	Session   *session.Session
-	Task      *task.Task      // 单个任务（保持向后兼容）
-	Tasks     []task.Task     // 用户的所有任务（用于全局助手）
-	Messages  []session.Message
-	UserInput string
-	Now       time.Time
-	LLMConfig llm.Config
+	UserID       uint64
+	Session      *session.Session
+	Task         *task.Task       // 单个任务（保持向后兼容）
+	Tasks        []task.Task      // 用户的所有任务（用于全局助手）
+	Dependencies []task.TaskDependency // 依赖关系信息（用于Executor判断隐含前置条件）
+	Messages     []session.Message
+	UserInput    string
+	Now          time.Time
+	LLMConfig    llm.Config
 }
 
 type AgentResponse struct {

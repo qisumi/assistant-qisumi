@@ -2,28 +2,28 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage } from 'antd';
-import { PlusOutlined, FileTextOutlined, ClockCircleOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-import { fetchTasks, deleteTask } from '@/api/tasks';
+import { fetchCompletedTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';
 
 const { Title, Text } = Typography;
 
-const Tasks: React.FC = () => {
+const CompletedTasks: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading, isError } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: fetchTasks,
+    queryKey: ['completedTasks'],
+    queryFn: fetchCompletedTasks,
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteTask,
     onSuccess: () => {
       antdMessage.success('任务已删除');
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['completedTasks'] });
     },
     onError: () => {
       antdMessage.error('删除失败，请稍后重试');
@@ -82,27 +82,14 @@ const Tasks: React.FC = () => {
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0 }}>任务列表</Title>
         <Space>
-          <Button
-            icon={<CheckCircleOutlined />}
-            onClick={() => navigate('/completed-tasks')}
+          <Button 
+            icon={<ArrowLeftOutlined />} 
+            onClick={() => navigate('/tasks')}
           >
-            已完成任务
+            返回任务列表
           </Button>
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => navigate('/create-from-text')}
-          >
-            从文本创建
-          </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => { /* TODO: Implement simple create */ }}
-          >
-            新建任务
-          </Button>
+          <Title level={2} style={{ margin: 0 }}>已完成任务</Title>
         </Space>
       </div>
 
@@ -145,9 +132,9 @@ const Tasks: React.FC = () => {
                     </Space>
                     {task.dueAt && (
                       <Space size={4}>
-                        <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
+                        <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          {dayjs(task.dueAt).format('YYYY-MM-DD')}
+                          完成于 {dayjs(task.updatedAt).format('YYYY-MM-DD')}
                         </Text>
                       </Space>
                     )}
@@ -158,9 +145,12 @@ const Tasks: React.FC = () => {
           )}
         />
       ) : (
-        <Empty description="暂无任务" style={{ marginTop: 64 }}>
-          <Button type="primary" onClick={() => navigate('/create-from-text')}>
-            立即创建一个
+        <Empty 
+          description="暂无已完成任务" 
+          style={{ marginTop: 64 }}
+        >
+          <Button type="primary" onClick={() => navigate('/tasks')}>
+            查看待办任务
           </Button>
         </Empty>
       )}
@@ -168,4 +158,4 @@ const Tasks: React.FC = () => {
   );
 };
 
-export default Tasks;
+export default CompletedTasks;

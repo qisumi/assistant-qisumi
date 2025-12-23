@@ -89,6 +89,11 @@ func (s *Service) ListTasks(ctx context.Context, userID uint64) ([]Task, error) 
 	return s.repo.ListTasks(ctx, userID)
 }
 
+// ListCompletedTasks 获取用户已完成的任务列表
+func (s *Service) ListCompletedTasks(ctx context.Context, userID uint64) ([]Task, error) {
+	return s.repo.ListCompletedTasks(ctx, userID)
+}
+
 // GetTask 获取任务详情
 func (s *Service) GetTask(ctx context.Context, userID, taskID uint64) (*Task, error) {
 	return s.repo.GetTaskWithSteps(ctx, userID, taskID)

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Tasks from './pages/Tasks';
 import TaskDetail from './pages/TaskDetail';
 import CreateFromText from './pages/CreateFromText';
+import CompletedTasks from './pages/CompletedTasks';
 import GlobalAssistant from './pages/GlobalAssistant';
 import Settings from './pages/Settings';
 
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
       {
         path: 'create-from-text',
         element: <CreateFromText />,
+      },
+      {
+        path: 'completed-tasks',
+        element: <CompletedTasks />,
       },
       {
         path: 'global-assistant',

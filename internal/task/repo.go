@@ -51,6 +51,16 @@ func (r *Repository) ListTasks(ctx context.Context, userID uint64) ([]Task, erro
 	return tasks, err
 }
 
+// ListCompletedTasks 获取用户已完成的任务列表
+func (r *Repository) ListCompletedTasks(ctx context.Context, userID uint64) ([]Task, error) {
+	var tasks []Task
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND status = ?", userID, "done").
+		Order("updated_at DESC").
+		Find(&tasks).Error
+	return tasks, err
+}
+
 // ApplyUpdateTaskFields 动态更新 tasks
 func (r *Repository) ApplyUpdateTaskFields(
 	ctx context.Context,
@@ -121,6 +131,31 @@ func (r *Repository) AddDependencies(ctx context.Context, dependencies []TaskDep
 		return nil
 	}
 	return r.db.WithContext(ctx).Create(&dependencies).Error
+}
+
+// GetTaskDependencies 获取与指定任务相关的所有依赖关系
+// 返回该任务作为前置或后置的所有依赖记录
+func (r *Repository) GetTaskDependencies(ctx context.Context, userID, taskID uint64) ([]TaskDependency, error) {
+	var deps []TaskDependency
+	err := r.db.WithContext(ctx).
+		Where("(predecessor_task_id = ? OR successor_task_id = ?) AND "+
+			"(predecessor_task_id IN (SELECT id FROM tasks WHERE user_id = ?) OR "+
+			"successor_task_id IN (SELECT id FROM tasks WHERE user_id = ?))",
+			taskID, taskID, userID, userID).
+		Find(&deps).Error
+	return deps, err
+}
+
+// GetAllUserDependencies 获取用户所有任务的依赖关系
+// 用于全局视图或Executor判断依赖关系
+func (r *Repository) GetAllUserDependencies(ctx context.Context, userID uint64) ([]TaskDependency, error) {
+	var deps []TaskDependency
+	err := r.db.WithContext(ctx).
+		Where("predecessor_task_id IN (SELECT id FROM tasks WHERE user_id = ?) OR "+
+			"successor_task_id IN (SELECT id FROM tasks WHERE user_id = ?)",
+			userID, userID).
+		Find(&deps).Error
+	return deps, err
 }
 
 // MarkTasksFocusToday 标记任务为今日重点

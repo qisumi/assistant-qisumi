@@ -17,6 +17,7 @@ type Config struct {
 	JWT    JWTConfig
 	Crypto CryptoConfig
 	LLM    LLMConfig
+	Log    LogConfig
 }
 
 // LLMConfig LLM配置
@@ -52,6 +53,11 @@ type JWTConfig struct {
 // CryptoConfig 加密配置
 type CryptoConfig struct {
 	APIKeyEncryptionKey string
+}
+
+// LogConfig 日志配置
+type LogConfig struct {
+	Level string // debug, info, warn, error
 }
 
 // LoadConfig 从环境变量加载配置
@@ -95,6 +101,9 @@ func LoadConfig() (*Config, error) {
 			APIKey:     getEnv("LLM_API_KEY", ""),
 			ModelName:  getEnv("LLM_MODEL_NAME", "qwen-plus"),
 			APIBaseURL: getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+		},
+		Log: LogConfig{
+			Level: getEnv("LOG_LEVEL", "info"),
 		},
 	}, nil
 }

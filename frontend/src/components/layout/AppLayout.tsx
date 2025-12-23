@@ -7,6 +7,7 @@ import {
     MessageOutlined,
     LogoutOutlined,
     UserOutlined,
+    CheckCircleOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -26,6 +27,11 @@ const AppLayout: React.FC = () => {
             key: '/tasks',
             icon: <UnorderedListOutlined />,
             label: '任务列表',
+        },
+        {
+            key: '/completed-tasks',
+            icon: <CheckCircleOutlined />,
+            label: '已完成任务',
         },
         {
             key: '/create-from-text',

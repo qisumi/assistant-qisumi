@@ -6,7 +6,10 @@ import (
 	"fmt"
 
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/logger"
 	"assistant-qisumi/internal/task"
+
+	"go.uber.org/zap"
 )
 
 // ChatCompletionsHandler 处理完整的Chat Completions流程，包括工具调用和结果处理
@@ -35,6 +38,12 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 	initialMessages []llm.Message,
 	tools []llm.Tool,
 ) (string, []TaskPatch, error) {
+	logger.Logger.Info("ChatCompletionsHandler开始处理",
+		zap.String("model", cfg.Model),
+		zap.Int("messages_count", len(initialMessages)),
+		zap.Int("tools_count", len(tools)),
+	)
+
 	// 1. 初始LLM调用
 	chatReq := llm.ChatRequest{
 		Model:      cfg.Model,
@@ -47,30 +56,63 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 		ctx = context.Background()
 	}
 
+	logger.Logger.Debug("发送初始LLM请求",
+		zap.String("model", cfg.Model),
+		zap.Int("messages_count", len(initialMessages)),
+		zap.Int("tools_count", len(tools)),
+	)
 	resp, err := h.llmClient.Chat(ctx, cfg, chatReq)
 	if err != nil {
+		logger.Logger.Error("初始LLM请求失败",
+			zap.String("error", err.Error()),
+		)
 		return "", nil, err
 	}
 
 	if len(resp.Choices) == 0 {
+		logger.Logger.Error("LLM响应无choices")
 		return "", nil, fmt.Errorf("no choices in llm response")
 	}
 
 	choice := resp.Choices[0]
 	assistantMessage := choice.Message.Content
+	logger.Logger.Debug("收到LLM响应",
+		zap.Int("content_length", len(assistantMessage)),
+		zap.String("finish_reason", choice.FinishReason),
+		zap.String("content", assistantMessage),
+	)
 
 	// 2. 检查是否需要工具调用
 	if len(choice.Message.ToolCalls) > 0 {
+		logger.Logger.Info("检测到工具调用",
+			zap.Int("tool_calls_count", len(choice.Message.ToolCalls)),
+		)
 		// 3. 处理工具调用
 		var taskPatches []TaskPatch
 		var toolResponses []llm.Message
 
-		for _, toolCall := range choice.Message.ToolCalls {
+		for i, toolCall := range choice.Message.ToolCalls {
+			logger.Logger.Info("执行工具调用",
+				zap.Int("index", i),
+				zap.String("tool_name", toolCall.Function.Name),
+				zap.String("tool_call_id", toolCall.ID),
+				zap.String("arguments", toolCall.Function.Arguments),
+			)
+
 			// 执行工具调用
 			toolResp, err := h.executeToolCall(toolCall)
 			if err != nil {
+				logger.Logger.Error("工具执行失败",
+					zap.String("tool_name", toolCall.Function.Name),
+					zap.String("error", err.Error()),
+				)
 				return "", nil, fmt.Errorf("failed to execute tool %s: %w", toolCall.Function.Name, err)
 			}
+
+			logger.Logger.Debug("工具执行成功",
+				zap.String("tool_name", toolCall.Function.Name),
+				zap.String("result", string(toolResp)),
+			)
 
 			// 生成工具响应消息
 			toolRespMsg := llm.Message{
@@ -84,13 +126,24 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 			// 解析工具调用结果生成TaskPatch
 			patches, err := h.generateTaskPatchesFromToolCall(toolCall)
 			if err != nil {
+				logger.Logger.Error("生成TaskPatch失败",
+					zap.String("tool_name", toolCall.Function.Name),
+					zap.String("error", err.Error()),
+				)
 				return "", nil, fmt.Errorf("failed to generate task patches from tool call %s: %w", toolCall.Function.Name, err)
 			}
+			logger.Logger.Debug("生成TaskPatch成功",
+				zap.String("tool_name", toolCall.Function.Name),
+				zap.Int("patches_count", len(patches)),
+			)
 			taskPatches = append(taskPatches, patches...)
 		}
 
 		// 4. 二次LLM调用，生成最终回复
 		if len(toolResponses) > 0 {
+			logger.Logger.Debug("发送二次LLM请求生成最终回复",
+				zap.Int("tool_responses_count", len(toolResponses)),
+			)
 			// 合并消息
 			finalMessages := append(initialMessages, llm.Message{
 				Role:      "assistant",
@@ -109,18 +162,32 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 
 			finalResp, err := h.llmClient.Chat(ctx, cfg, finalChatReq)
 			if err != nil {
+				logger.Logger.Error("二次LLM请求失败",
+					zap.String("error", err.Error()),
+				)
 				return "", nil, err
 			}
 
 			if len(finalResp.Choices) > 0 {
 				assistantMessage = finalResp.Choices[0].Message.Content
+				logger.Logger.Debug("收到最终LLM响应",
+					zap.Int("final_response_length", len(assistantMessage)),
+					zap.String("final_content", assistantMessage),
+				)
 			}
 		}
 
+		logger.Logger.Info("ChatCompletionsHandler处理完成（含工具调用）",
+			zap.Int("task_patches_count", len(taskPatches)),
+			zap.Int("final_response_length", len(assistantMessage)),
+		)
 		return assistantMessage, taskPatches, nil
 	}
 
 	// 不需要工具调用，直接返回LLM回复
+	logger.Logger.Info("ChatCompletionsHandler处理完成（无工具调用）",
+		zap.Int("response_length", len(assistantMessage)),
+	)
 	return assistantMessage, nil, nil
 }
 
@@ -128,17 +195,31 @@ func (h *ChatCompletionsHandler) HandleChatCompletions(
 func (h *ChatCompletionsHandler) executeToolCall(toolCall llm.ToolCall) ([]byte, error) {
 	executor, ok := h.toolMap[toolCall.Function.Name]
 	if !ok {
+		logger.Logger.Error("工具执行器未找到",
+			zap.String("tool_name", toolCall.Function.Name),
+		)
 		return nil, fmt.Errorf("tool executor not found for %s", toolCall.Function.Name)
 	}
 
+	logger.Logger.Debug("开始执行工具",
+		zap.String("tool_name", toolCall.Function.Name),
+	)
+
 	result, err := executor.Execute(toolCall.Function.Arguments)
 	if err != nil {
+		logger.Logger.Error("工具执行失败",
+			zap.String("tool_name", toolCall.Function.Name),
+			zap.String("error", err.Error()),
+		)
 		return nil, err
 	}
 
 	// 序列化工具执行结果
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
+		logger.Logger.Error("序列化工具结果失败",
+			zap.String("error", err.Error()),
+		)
 		return nil, fmt.Errorf("failed to marshal tool result: %w", err)
 	}
 

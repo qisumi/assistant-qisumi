@@ -15,7 +15,8 @@ var Logger *zap.Logger
 
 // Init 初始化logger
 // logDir: 日志文件所在目录（通常是可执行文件所在目录）
-func Init(logDir string) error {
+// logLevel: 日志级别（debug, info, warn, error）
+func Init(logDir string, logLevel string) error {
 	// 创建log子目录
 	logSubDir := filepath.Join(logDir, "log")
 	if err := os.MkdirAll(logSubDir, 0755); err != nil {
@@ -51,11 +52,19 @@ func Init(logDir string) error {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
+	// 解析日志级别，默认为info
+	level := zapcore.InfoLevel
+	if logLevel != "" {
+		if parsedLevel, err := zapcore.ParseLevel(logLevel); err == nil {
+			level = parsedLevel
+		}
+	}
+
 	// 创建core
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(encoderConfig),
 		multiWriter,
-		zapcore.InfoLevel,
+		level,
 	)
 
 	Logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))

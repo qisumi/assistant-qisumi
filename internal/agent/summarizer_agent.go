@@ -3,9 +3,13 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/logger"
+
+	"go.uber.org/zap"
 )
 
 type SummarizerAgent struct {
@@ -19,6 +23,12 @@ func NewSummarizerAgent(llmClient llm.Client) *SummarizerAgent {
 func (a *SummarizerAgent) Name() string { return "summarizer" }
 
 func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
+	logger.Logger.Info("SummarizerAgent开始处理",
+		zap.String("session_id", fmt.Sprintf("%d", req.Session.ID)),
+		zap.String("user_input", req.UserInput),
+		zap.Int("history_messages", len(req.Messages)),
+	)
+
 	// 1. 构造 messages 调用 LLM
 	messages := []llm.Message{
 		{
@@ -55,6 +65,9 @@ func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 				Role:    "system",
 				Content: "当前任务状态（只读 JSON）：\n" + string(taskJSON),
 			})
+			logger.Logger.Debug("添加任务状态信息",
+				zap.Uint64("task_id", req.Task.ID),
+			)
 		}
 	}
 
@@ -66,6 +79,9 @@ func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 
 	// 添加历史消息
 	messages = append(messages, historyToLLMMessages(req.Messages)...)
+	logger.Logger.Debug("添加历史消息",
+		zap.Int("history_count", len(req.Messages)),
+	)
 
 	// 添加当前用户输入
 	messages = append(messages, llm.Message{
@@ -85,8 +101,14 @@ func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	}
 
 	// 调用LLM
+	logger.Logger.Debug("发送Summarizer请求到LLM",
+		zap.String("model", req.LLMConfig.Model),
+	)
 	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
 	if err != nil {
+		logger.Logger.Error("Summarizer LLM调用失败",
+			zap.String("error", err.Error()),
+		)
 		return nil, err
 	}
 
@@ -96,7 +118,14 @@ func (a *SummarizerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	if len(resp.Choices) > 0 {
 		choice := resp.Choices[0]
 		assistantMessage = choice.Message.Content
+		logger.Logger.Debug("收到Summarizer响应",
+			zap.Int("response_length", len(assistantMessage)),
+		)
 	}
+
+	logger.Logger.Info("SummarizerAgent处理完成",
+		zap.Int("response_length", len(assistantMessage)),
+	)
 
 	return &AgentResponse{
 		AssistantMessage: assistantMessage,

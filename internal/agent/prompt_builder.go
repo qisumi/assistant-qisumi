@@ -34,10 +34,11 @@ func historyToLLMMessages(history []session.Message) []llm.Message {
 // BuildExecutorMessages 构造 ExecutorAgent 的 messages：
 // - system: ExecutorSystemPrompt
 // - system: 当前任务 JSON
+// - system: 依赖关系 JSON（用于判断隐含前置条件）
 // - system: 当前时间
 // - 历史消息（可选）
 // - user: 最新输入
-func BuildExecutorMessages(t *task.Task, history []session.Message, userInput string, now time.Time) ([]llm.Message, error) {
+func BuildExecutorMessages(t *task.Task, dependencies []task.TaskDependency, history []session.Message, userInput string, now time.Time) ([]llm.Message, error) {
 	taskJSON, err := json.Marshal(t)
 	if err != nil {
 		return nil, err
@@ -55,11 +56,27 @@ func BuildExecutorMessages(t *task.Task, history []session.Message, userInput st
 				taskJSON,
 			),
 		},
-		{
-			Role:    "system",
-			Content: fmt.Sprintf("当前时间 now: %s", now.Format(time.RFC3339)),
-		},
 	}
+
+	// 添加依赖关系信息
+	if len(dependencies) > 0 {
+		depsJSON, err := json.Marshal(dependencies)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, llm.Message{
+			Role: "system",
+			Content: fmt.Sprintf(
+				"依赖关系（JSON，只读）：\n%s\n说明：当某个任务/步骤完成时，你需要检查这些依赖关系，自动解锁满足条件的后续任务/步骤。",
+				depsJSON,
+			),
+		})
+	}
+
+	msgs = append(msgs, llm.Message{
+		Role:    "system",
+		Content: fmt.Sprintf("当前时间 now: %s", now.Format(time.RFC3339)),
+	})
 
 	// 历史消息
 	msgs = append(msgs, historyToLLMMessages(history)...)

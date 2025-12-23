@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"assistant-qisumi/internal/logger"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -83,22 +87,81 @@ func NewHTTPClient() *HTTPClient {
 }
 
 func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*ChatResponse, error) {
+	startTime := time.Now()
+
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
+	logger.Logger.Debug("LLM Client Chat请求开始",
+		zap.String("model", req.Model),
+		zap.String("base_url", cfg.BaseURL),
+		zap.Int("messages_count", len(req.Messages)),
+		zap.Int("tools_count", len(req.Tools)),
+		zap.String("tool_choice", req.ToolChoice),
+	)
+
 	params, err := buildChatParams(req)
 	if err != nil {
+		logger.Logger.Error("构建Chat请求参数失败",
+			zap.String("error", err.Error()),
+		)
 		return nil, err
 	}
 
 	client := newOpenAIClient(cfg, c.httpClient)
 	resp, err := client.Chat.Completions.New(ctx, params)
 	if err != nil {
+		duration := time.Since(startTime)
+		logger.Logger.Error("LLM API调用失败",
+			zap.String("model", req.Model),
+			zap.String("error", err.Error()),
+			zap.Duration("duration", duration),
+		)
 		return nil, err
 	}
 
-	return fromOpenAIChatResponse(resp), nil
+	duration := time.Since(startTime)
+	chatResp := fromOpenAIChatResponse(resp)
+
+	logger.Logger.Info("LLM API调用成功",
+		zap.String("model", req.Model),
+		zap.Int("choices_count", len(chatResp.Choices)),
+		zap.Duration("duration", duration),
+	)
+
+	// 记录响应详情（debug级别）- 包含完整内容
+	if len(chatResp.Choices) > 0 {
+		choice := chatResp.Choices[0]
+		logger.Logger.Debug("LLM响应详情",
+			zap.String("finish_reason", choice.FinishReason),
+			zap.Int("content_length", len(choice.Message.Content)),
+			zap.Int("tool_calls_count", len(choice.Message.ToolCalls)),
+			zap.String("content", choice.Message.Content),
+		)
+		
+		// 如果有工具调用，记录工具调用详情
+		if len(choice.Message.ToolCalls) > 0 {
+			for i, toolCall := range choice.Message.ToolCalls {
+				logger.Logger.Debug("LLM工具调用详情",
+					zap.Int("index", i),
+					zap.String("tool_call_id", toolCall.ID),
+					zap.String("tool_name", toolCall.Function.Name),
+					zap.String("tool_arguments", toolCall.Function.Arguments),
+				)
+			}
+		}
+	}
+
+	return chatResp, nil
+}
+
+// truncateString 截断字符串用于日志
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 func newOpenAIClient(cfg Config, httpClient *http.Client) openai.Client {

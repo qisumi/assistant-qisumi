@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/logger"
+
+	"go.uber.org/zap"
 )
 
 type RouterAgent struct {
@@ -23,15 +26,26 @@ func (a *RouterAgent) Name() string {
 func (a *RouterAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	// 1. 首先尝试 rule-based 路由
 	selectedAgent := a.ruleBasedRoute(req)
+	logger.Logger.Debug("Rule-based路由结果",
+		zap.String("agent", selectedAgent),
+		zap.String("user_input", req.UserInput),
+	)
 
 	// 2. 如果 rule-based 无法确定，或者需要更智能的判断，使用 LLM fallback
 	if selectedAgent == "" {
+		logger.Logger.Debug("Rule-based无法确定，使用LLM路由")
 		var err error
 		selectedAgent, err = a.llmBasedRoute(req)
 		if err != nil {
 			// 如果 LLM 路由失败，使用默认值
+			logger.Logger.Warn("LLM路由失败，使用默认executor",
+				zap.String("error", err.Error()),
+			)
 			selectedAgent = "executor"
 		}
+		logger.Logger.Debug("LLM路由结果",
+			zap.String("agent", selectedAgent),
+		)
 	}
 
 	// RouterAgent 不需要生成 assistant message 或 task patches，
@@ -49,24 +63,32 @@ func (a *RouterAgent) ruleBasedRoute(req AgentRequest) string {
 
 	// 全局会话直接路由到 GlobalAgent
 	if req.Session != nil && req.Session.Type == "global" {
+		logger.Logger.Debug("全局会话路由到global agent")
 		return "global"
 	}
 
 	// 检查关键字，确定 Agent 类型
 	if strings.Contains(text, "总结") || strings.Contains(text, "overview") || strings.Contains(text, "回顾") || strings.Contains(text, "progress") {
+		logger.Logger.Debug("匹配到总结关键字，路由到summarizer agent")
 		return "summarizer"
 	}
 
 	if strings.Contains(text, "重新规划") || strings.Contains(text, "重排") || strings.Contains(text, "reschedule") || strings.Contains(text, "重排日程") || strings.Contains(text, "拆解") {
+		logger.Logger.Debug("匹配到规划关键字，路由到planner agent")
 		return "planner"
 	}
 
 	// 其他情况默认使用 executor
+	logger.Logger.Debug("无匹配关键字，默认路由到executor agent")
 	return "executor"
 }
 
 // llmBasedRoute 使用 LLM 进行智能路由
 func (a *RouterAgent) llmBasedRoute(req AgentRequest) (string, error) {
+	logger.Logger.Info("开始LLM路由",
+		zap.String("user_input", req.UserInput),
+	)
+
 	// 构造会话类型信息
 	sessionType := "task"
 	if req.Session != nil {
@@ -121,14 +143,28 @@ func (a *RouterAgent) llmBasedRoute(req AgentRequest) (string, error) {
 	}
 
 	// 调用 LLM
+	logger.Logger.Debug("发送LLM路由请求",
+		zap.String("model", req.LLMConfig.Model),
+		zap.String("session_type", sessionType),
+		zap.String("has_task", hasTask),
+	)
 	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
 	if err != nil {
+		logger.Logger.Error("LLM路由请求失败",
+			zap.String("error", err.Error()),
+		)
 		return "", err
 	}
+	logger.Logger.Debug("收到LLM路由响应",
+		zap.Int("choices_count", len(resp.Choices)),
+	)
 
 	// 解析 LLM 响应
 	if len(resp.Choices) > 0 {
 		assistantMessage := resp.Choices[0].Message.Content
+		logger.Logger.Debug("LLM路由响应内容",
+			zap.String("content", assistantMessage),
+		)
 
 		// 解析 JSON 响应
 		var routerResp struct {
@@ -145,11 +181,24 @@ func (a *RouterAgent) llmBasedRoute(req AgentRequest) (string, error) {
 			}
 
 			if validAgents[routerResp.Agent] {
+				logger.Logger.Info("LLM路由成功",
+					zap.String("agent", routerResp.Agent),
+				)
 				return routerResp.Agent, nil
+			} else {
+				logger.Logger.Warn("LLM返回无效的agent类型",
+					zap.String("agent", routerResp.Agent),
+				)
 			}
+		} else {
+			logger.Logger.Warn("解析LLM路由响应失败",
+				zap.String("error", err.Error()),
+				zap.String("content", assistantMessage),
+			)
 		}
 	}
 
 	// 默认返回 executor
+	logger.Logger.Warn("LLM路由无效，使用默认executor")
 	return "executor", nil
 }

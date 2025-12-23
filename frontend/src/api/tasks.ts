@@ -23,3 +23,9 @@ export async function createTaskFromText(rawText: string): Promise<TaskDetailRes
 export async function deleteTask(taskId: string | number): Promise<void> {
   await apiClient.delete(`/tasks/${taskId}`);
 }
+
+// 获取已完成任务列表
+export async function fetchCompletedTasks(): Promise<Task[]> {
+  const { data } = await apiClient.get<{ tasks: Task[]; total: number }>('/tasks/completed');
+  return data.tasks;
+}
