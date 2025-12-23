@@ -2,17 +2,22 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"assistant-qisumi/internal/llm"
 )
 
 type GlobalAgent struct {
-	llmClient llm.Client
+	llmClient              llm.Client
+	chatCompletionsHandler *ChatCompletionsHandler
 }
 
-func NewGlobalAgent(llmClient llm.Client) *GlobalAgent {
-	return &GlobalAgent{llmClient: llmClient}
+func NewGlobalAgent(llmClient llm.Client, chatCompletionsHandler *ChatCompletionsHandler) *GlobalAgent {
+	return &GlobalAgent{
+		llmClient:              llmClient,
+		chatCompletionsHandler: chatCompletionsHandler,
+	}
 }
 
 func (a *GlobalAgent) Name() string { return "global" }
@@ -58,6 +63,22 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 		Content: "当前时间 now: " + req.Now.Format(time.RFC3339),
 	})
 
+	// 添加任务数据到系统消息
+	if len(req.Tasks) > 0 {
+		tasksJSON, err := json.Marshal(req.Tasks)
+		if err == nil {
+			messages = append(messages, llm.Message{
+				Role:    "system",
+				Content: "用户的任务数据（JSON格式）：\n" + string(tasksJSON),
+			})
+		}
+	} else {
+		messages = append(messages, llm.Message{
+			Role:    "system",
+			Content: "用户目前没有任务数据。",
+		})
+	}
+
 	// 添加历史消息
 	messages = append(messages, historyToLLMMessages(req.Messages)...)
 
@@ -70,29 +91,16 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	// 定义可用工具
 	tools := llm.GlobalTools()
 
-	// 构造Chat请求
-	chatReq := llm.ChatRequest{
-		Model:      req.LLMConfig.Model,
-		Messages:   messages,
-		Tools:      tools,
-		ToolChoice: "auto",
-	}
-
-	// 调用LLM
-	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
+	// 使用 ChatCompletionsHandler 处理完整的工具调用流程
+	// 这会自动处理：初始LLM调用 -> 工具执行 -> 二次LLM调用生成最终回复
+	assistantMessage, taskPatches, err := a.chatCompletionsHandler.HandleChatCompletions(
+		context.Background(),
+		req.LLMConfig,
+		messages,
+		tools,
+	)
 	if err != nil {
 		return nil, err
-	}
-
-	// 2. 处理 LLM 响应，生成 assistant 回复文本和 TaskPatches
-	var assistantMessage string
-	if len(resp.Choices) > 0 {
-		assistantMessage = resp.Choices[0].Message.Content
-	}
-
-	taskPatches, err := BuildPatchesFromToolCalls(resp)
-	if err != nil {
-		// 记录错误但继续返回 assistant 消息
 	}
 
 	return &AgentResponse{

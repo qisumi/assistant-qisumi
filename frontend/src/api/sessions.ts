@@ -25,6 +25,14 @@ export async function sendSessionMessage(
   return data;
 }
 
+// 清空会话的所有消息
+export async function clearSessionMessages(
+  sessionId: number | string,
+): Promise<{ success: boolean }> {
+  const { data } = await apiClient.delete<{ success: boolean }>(`/sessions/${sessionId}/messages`);
+  return data;
+}
+
 // 获取或创建当前用户的全局会话
 export async function getOrCreateGlobalSession(): Promise<Session> {
   const { data } = await apiClient.get<{ session: Session }>('/sessions/global');

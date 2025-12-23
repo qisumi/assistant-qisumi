@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Space, Spin, Typography, message as antdMessage } from 'antd';
-import { BulbOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Button, Space, Spin, Typography, message as antdMessage, Modal } from 'antd';
+import { BulbOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { getOrCreateGlobalSession, fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
+import { getOrCreateGlobalSession, fetchSessionMessages, sendSessionMessage, clearSessionMessages } from '@/api/sessions';
 import type { Message } from '@/types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -48,6 +48,31 @@ const GlobalAssistant: React.FC = () => {
       antdMessage.error('发送失败，请稍后重试');
     },
   });
+
+  // 4. 清空消息（开启新对话）
+  const clearMutation = useMutation({
+    mutationFn: () => clearSessionMessages(sessionId!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['sessionMessages', sessionId] });
+      antdMessage.success('已开启新对话');
+    },
+    onError: (err: any) => {
+      console.error(err);
+      antdMessage.error('开启新对话失败，请稍后重试');
+    },
+  });
+
+  const handleStartNewConversation = () => {
+    Modal.confirm({
+      title: '确认开启新对话',
+      content: '这将清空当前全局助手的所有历史对话记录，确定要继续吗？',
+      okText: '确定',
+      cancelText: '取消',
+      onOk: () => {
+        clearMutation.mutate();
+      },
+    });
+  };
 
   const handleQuickAskToday = async () => {
     if (!sessionId) return;
@@ -106,13 +131,11 @@ const GlobalAssistant: React.FC = () => {
             </Space>
             <Space>
               <Button
-                icon={<ReloadOutlined />}
-                onClick={() => {
-                  void refetchMessages();
-                }}
-                disabled={loadingMessages}
+                icon={<PlusOutlined />}
+                onClick={handleStartNewConversation}
+                disabled={clearMutation.isPending || !sessionId}
               >
-                刷新
+                开启新对话
               </Button>
             </Space>
           </Space>

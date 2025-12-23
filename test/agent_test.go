@@ -86,11 +86,17 @@ func TestAgentServiceCreation(t *testing.T) {
 	// 创建LLM客户端
 	llmClient := &MockAgentLLMClient{}
 
+	// 初始化工具执行器映射
+	toolMap := make(map[string]agent.ToolExecutor)
+
+	// 初始化Chat Completions处理器
+	chatCompletionsHandler := agent.NewChatCompletionsHandler(llmClient, toolMap)
+
 	// 创建Agent
-	executorAgent := agent.NewExecutorAgent(llmClient)
-	plannerAgent := agent.NewPlannerAgent(llmClient)
+	executorAgent := agent.NewExecutorAgent(llmClient, chatCompletionsHandler)
+	plannerAgent := agent.NewPlannerAgent(llmClient, chatCompletionsHandler)
 	summarizerAgent := agent.NewSummarizerAgent(llmClient)
-	globalAgent := agent.NewGlobalAgent(llmClient)
+	globalAgent := agent.NewGlobalAgent(llmClient, chatCompletionsHandler)
 
 	// 收集所有Agent
 	agents := []agent.Agent{

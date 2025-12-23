@@ -79,3 +79,6 @@ Thumbs.db
 # 其他
 *.bak
 *.backup
+
+# 数据库文件
+*.db

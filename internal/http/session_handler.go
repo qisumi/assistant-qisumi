@@ -32,6 +32,7 @@ func (h *SessionHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/sessions/global", h.getGlobalSession)
 	rg.GET("/sessions/:id/messages", h.listMessages)
 	rg.POST("/sessions/:id/messages", h.postMessage)
+	rg.DELETE("/sessions/:id/messages", h.clearMessages)
 }
 
 func (h *SessionHandler) getGlobalSession(c *gin.Context) {
@@ -137,4 +138,33 @@ func (h *SessionHandler) postMessage(c *gin.Context) {
 		"assistantMessage": resp.AssistantMessage,
 		"taskPatches":      resp.TaskPatches,
 	})
+}
+
+func (h *SessionHandler) clearMessages(c *gin.Context) {
+	userID := GetUserID(c)
+	sidStr := c.Param("id")
+	sid, err := strconv.ParseUint(sidStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
+		return
+	}
+
+	// 验证 session 属于该用户
+	sess, err := h.sessionRepo.GetSession(c, sid)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+	if sess.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	// 清空该 session 的所有消息
+	if err := h.sessionRepo.ClearMessages(c, sid); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

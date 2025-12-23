@@ -1,17 +1,21 @@
 package agent
 
 import (
-	"assistant-qisumi/internal/llm"
 	"context"
-	"fmt"
+
+	"assistant-qisumi/internal/llm"
 )
 
 type PlannerAgent struct {
-	llmClient llm.Client
+	llmClient              llm.Client
+	chatCompletionsHandler *ChatCompletionsHandler
 }
 
-func NewPlannerAgent(llmClient llm.Client) *PlannerAgent {
-	return &PlannerAgent{llmClient: llmClient}
+func NewPlannerAgent(llmClient llm.Client, chatCompletionsHandler *ChatCompletionsHandler) *PlannerAgent {
+	return &PlannerAgent{
+		llmClient:              llmClient,
+		chatCompletionsHandler: chatCompletionsHandler,
+	}
 }
 
 func (a *PlannerAgent) Name() string { return "planner" }
@@ -26,31 +30,16 @@ func (a *PlannerAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	// 2. 准备tools
 	tools := llm.PlannerTools()
 
-	// 3. 构造Chat请求
-	chatReq := llm.ChatRequest{
-		Model:      req.LLMConfig.Model,
-		Messages:   messages,
-		Tools:      tools,
-		ToolChoice: "auto",
-	}
-
-	// 4. 调用LLM
-	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
+	// 3. 使用 ChatCompletionsHandler 处理完整的工具调用流程
+	// 这会自动处理：初始LLM调用 -> 工具执行 -> 二次LLM调用生成最终回复
+	assistantMessage, taskPatches, err := a.chatCompletionsHandler.HandleChatCompletions(
+		context.Background(),
+		req.LLMConfig,
+		messages,
+		tools,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call LLM: %w", err)
-	}
-
-	// 5. 处理LLM响应
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in LLM response")
-	}
-
-	chatMsg := resp.Choices[0].Message
-	assistantMessage := chatMsg.Content
-
-	taskPatches, err := BuildPatchesFromToolCalls(resp)
-	if err != nil {
-		// 记录错误但继续返回 assistant 消息
+		return nil, err
 	}
 
 	return &AgentResponse{

@@ -7,6 +7,9 @@ import (
 	"assistant-qisumi/internal/config"
 	"assistant-qisumi/internal/db"
 	"assistant-qisumi/internal/http"
+	"assistant-qisumi/internal/logger"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -15,6 +18,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// 获取可执行文件所在目录用于日志
+	execDir, err := config.GetExecutableDir()
+	if err != nil {
+		log.Fatalf("Failed to get executable directory: %v", err)
+	}
+
+	// 初始化logger
+	if err := logger.Init(execDir); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Logger.Sync()
 
 	// 初始化数据库连接
 	var dsn string
@@ -27,18 +42,18 @@ func main() {
 
 	gormDB, err := db.NewGormDB(cfg.DB.Type, dsn)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		logger.Logger.Fatal("Failed to initialize database", zap.Error(err))
 	}
 
 	// 执行自动迁移
 	if err := db.AutoMigrate(gormDB); err != nil {
-		log.Fatalf("Failed to auto migrate: %v", err)
+		logger.Logger.Fatal("Failed to auto migrate", zap.Error(err))
 	}
 
 	// 获取 sql.DB 用于 defer close (虽然 GORM 会管理，但保持习惯)
 	sqlDB, err := gormDB.DB()
 	if err != nil {
-		log.Fatalf("Failed to get sql.DB: %v", err)
+		logger.Logger.Fatal("Failed to get sql.DB", zap.Error(err))
 	}
 	defer sqlDB.Close()
 
@@ -46,8 +61,11 @@ func main() {
 	server := http.NewServer(cfg.HTTP, cfg.JWT, cfg.Crypto, cfg.LLM, gormDB, nil)
 
 	// 启动服务器
-	log.Printf("Server starting on %s:%s", cfg.HTTP.Host, cfg.HTTP.Port)
+	logger.Logger.Info("Server starting",
+		zap.String("host", cfg.HTTP.Host),
+		zap.String("port", cfg.HTTP.Port),
+	)
 	if err := server.Start(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		logger.Logger.Fatal("Failed to start server", zap.Error(err))
 	}
 }

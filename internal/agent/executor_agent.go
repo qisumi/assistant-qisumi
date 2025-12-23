@@ -7,11 +7,15 @@ import (
 )
 
 type ExecutorAgent struct {
-	llmClient llm.Client
+	llmClient              llm.Client
+	chatCompletionsHandler *ChatCompletionsHandler
 }
 
-func NewExecutorAgent(llmClient llm.Client) *ExecutorAgent {
-	return &ExecutorAgent{llmClient: llmClient}
+func NewExecutorAgent(llmClient llm.Client, chatCompletionsHandler *ChatCompletionsHandler) *ExecutorAgent {
+	return &ExecutorAgent{
+		llmClient:              llmClient,
+		chatCompletionsHandler: chatCompletionsHandler,
+	}
 }
 
 func (a *ExecutorAgent) Name() string { return "executor" }
@@ -26,30 +30,16 @@ func (a *ExecutorAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	// 2. 定义可用工具
 	tools := llm.ExecutorTools()
 
-	// 构造Chat请求
-	chatReq := llm.ChatRequest{
-		Model:      req.LLMConfig.Model,
-		Messages:   messages,
-		Tools:      tools,
-		ToolChoice: "auto",
-	}
-
-	// 调用LLM
-	resp, err := a.llmClient.Chat(context.Background(), req.LLMConfig, chatReq)
+	// 3. 使用 ChatCompletionsHandler 处理完整的工具调用流程
+	// 这会自动处理：初始LLM调用 -> 工具执行 -> 二次LLM调用生成最终回复
+	assistantMessage, taskPatches, err := a.chatCompletionsHandler.HandleChatCompletions(
+		context.Background(),
+		req.LLMConfig,
+		messages,
+		tools,
+	)
 	if err != nil {
 		return nil, err
-	}
-
-	// 2. 处理 LLM 响应，生成 assistant 回复文本和 TaskPatches
-	var assistantMessage string
-	if len(resp.Choices) > 0 {
-		assistantMessage = resp.Choices[0].Message.Content
-	}
-
-	taskPatches, err := BuildPatchesFromToolCalls(resp)
-	if err != nil {
-		// 记录错误但继续返回 assistant 消息
-		// log.Printf("build patches error: %v", err)
 	}
 
 	return &AgentResponse{

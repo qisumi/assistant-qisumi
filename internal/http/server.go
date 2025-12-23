@@ -84,10 +84,18 @@ func (s *Server) setupRoutes() {
 
 		// Agents
 		router := agent.NewSimpleRouter()
-		executorAgent := agent.NewExecutorAgent(s.llmClient)
-		plannerAgent := agent.NewPlannerAgent(s.llmClient)
+		
+		// 初始化工具执行器映射
+		toolMap := make(map[string]agent.ToolExecutor)
+		
+		// 初始化Chat Completions处理器
+		chatCompletionsHandler := agent.NewChatCompletionsHandler(s.llmClient, toolMap)
+		
+		// 创建agents，传入chatCompletionsHandler
+		executorAgent := agent.NewExecutorAgent(s.llmClient, chatCompletionsHandler)
+		plannerAgent := agent.NewPlannerAgent(s.llmClient, chatCompletionsHandler)
 		summarizerAgent := agent.NewSummarizerAgent(s.llmClient)
-		globalAgent := agent.NewGlobalAgent(s.llmClient)
+		globalAgent := agent.NewGlobalAgent(s.llmClient, chatCompletionsHandler)
 		taskCreationAgent := agent.NewTaskCreationAgent(s.llmClient)
 		agents := []agent.Agent{executorAgent, plannerAgent, summarizerAgent, globalAgent, taskCreationAgent}
 		agentSvc := agent.NewService(router, agents, taskRepo, sessionRepo, dependencySvc, s.db, s.llmClient)

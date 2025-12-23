@@ -124,3 +124,10 @@ func (r *Repository) GetGlobalSessionOrCreate(ctx context.Context, userID uint64
 	}
 	return &sess, nil
 }
+
+// ClearMessages 清空指定 session 的所有消息
+func (r *Repository) ClearMessages(ctx context.Context, sessionID uint64) error {
+	return r.db.WithContext(ctx).
+		Where("session_id = ?", sessionID).
+		Delete(&Message{}).Error
+}

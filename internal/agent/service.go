@@ -46,6 +46,17 @@ func NewService(
 	// 初始化Chat Completions处理器
 	chatCompletionsHandler := NewChatCompletionsHandler(llmClient, toolMap)
 
+	// 确保所有使用工具的agent都使用chatCompletionsHandler
+	if _, ok := m["executor"]; ok {
+		m["executor"] = NewExecutorAgent(llmClient, chatCompletionsHandler)
+	}
+	if _, ok := m["planner"]; ok {
+		m["planner"] = NewPlannerAgent(llmClient, chatCompletionsHandler)
+	}
+	if _, ok := m["global"]; ok {
+		m["global"] = NewGlobalAgent(llmClient, chatCompletionsHandler)
+	}
+
 	return &Service{
 		router:                 router,
 		agents:                 m,
@@ -82,10 +93,20 @@ func (s *Service) HandleUserMessage(
 		}
 	}
 
+	// 获取用户的所有任务（用于全局助手）
+	var allTasks []task.Task
+	if sess.Type == "global" {
+		allTasks, err = s.taskRepo.ListTasks(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("ListTasks failed: %w", err)
+		}
+	}
+
 	req := AgentRequest{
 		UserID:    userID,
 		Session:   sess,
 		Task:      t,
+		Tasks:     allTasks,
 		Messages:  msgs,
 		UserInput: userInput,
 		Now:       time.Now(),

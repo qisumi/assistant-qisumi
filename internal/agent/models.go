@@ -11,7 +11,8 @@ import (
 type AgentRequest struct {
 	UserID    uint64
 	Session   *session.Session
-	Task      *task.Task
+	Task      *task.Task      // 单个任务（保持向后兼容）
+	Tasks     []task.Task     // 用户的所有任务（用于全局助手）
 	Messages  []session.Message
 	UserInput string
 	Now       time.Time
