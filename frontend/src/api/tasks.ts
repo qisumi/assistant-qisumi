@@ -13,7 +13,8 @@ export const fetchTaskDetail = async (taskId: string | number): Promise<TaskDeta
 
 export const createTaskFromText = async (rawText: string): Promise<TaskDetailResponse> => {
   const { data } = await apiClient.post('/tasks/from-text', { raw_text: rawText });
-  return data;
+  // 清理可能的循环引用
+  return JSON.parse(JSON.stringify(data));
 };
 
 export interface CreateTaskRequest {

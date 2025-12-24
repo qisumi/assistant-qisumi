@@ -160,9 +160,6 @@ Environment variables (`.env`):
 
 ## Future Enhancements (TODO.md)
 
-1. Markdown rendering support
-2. Customizable assistant nickname
-3. Mobile optimization
-4. Streaming response support
-5. Task assistant dialog positioning optimization
-6. Frontend layout optimization and beautification
+1. Customizable assistant nickname
+2. dark mode UI
+3. Streaming response support

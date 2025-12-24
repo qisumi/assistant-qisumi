@@ -30,10 +30,10 @@ export const PRIORITY_COLORS: Record<string, string> = {
 
 // Agent标签映射
 export const AGENT_LABELS: Record<string, string> = {
-  executor: '执行',
-  planner: '规划',
-  summarizer: '总结',
-  global: '全局',
+  executor: '小奇（执行）',
+  planner: '小奇（规划）',
+  summarizer: '小奇（总结）',
+  global: '小奇（全局）',
 };
 
 // Agent图标颜色映射

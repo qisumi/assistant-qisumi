@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Form, Input, Button, Space, Typography, message as antdMessage, Divider, Alert } from 'antd';
-import { SettingOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, Typography, App, Alert, Space } from 'antd';
+import { SettingOutlined, LockOutlined, GlobalOutlined, SaveOutlined } from '@ant-design/icons';
 
 import { fetchLLMSettings, updateLLMSettings, type LLMSettings } from '@/api/settings';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const { Title, Paragraph } = Typography;
 
 const Settings: React.FC = () => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
+  const { message } = App.useApp();
 
   const { data: settings } = useQuery({
     queryKey: ['llmSettings'],
@@ -19,12 +21,12 @@ const Settings: React.FC = () => {
   const updateMutation = useMutation({
     mutationFn: (values: LLMSettings) => updateLLMSettings(values),
     onSuccess: () => {
-      antdMessage.success('设置已保存');
+      message.success('设置已保存');
       queryClient.invalidateQueries({ queryKey: ['llmSettings'] });
     },
     onError: (err: any) => {
       console.error(err);
-      antdMessage.error('保存失败，请检查输入或稍后重试');
+      message.error('保存失败，请检查输入或稍后重试');
     },
   });
 
@@ -43,27 +45,45 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
-      <Card style={{ maxWidth: 800, width: '100%' }}>
-        <Space direction="vertical" style={{ width: '100%', marginBottom: 24 }}>
-          <Title level={2}>
-            <SettingOutlined style={{ marginRight: 12 }} />
-            系统设置
+    <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <PageHeader
+        title="系统设置"
+        extra={
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            onClick={() => form.submit()}
+            loading={updateMutation.isPending}
+          >
+            保存配置
+          </Button>
+        }
+      />
+
+      {/* Info card */}
+      <Card style={{ marginBottom: 24 }}>
+        <Space direction="vertical" size="small">
+          <Title level={4} style={{ margin: 0 }}>
+            <SettingOutlined style={{ marginRight: 8 }} />
+            LLM 服务配置
           </Title>
-          <Paragraph type="secondary">
-            配置您的个人偏好和 LLM 服务接入信息。
+          <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            配置您的 LLM 服务接入信息以启用 AI 助手功能。
           </Paragraph>
         </Space>
+      </Card>
 
-        <Divider orientation="left">LLM 配置</Divider>
-        <Alert
-          message="安全提示"
-          description="您的 API 密钥将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的密钥。"
-          type="info"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
+      {/* Security alert */}
+      <Alert
+        message="安全提示"
+        description="您的 API 密钥将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的密钥。"
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
 
+      {/* Settings form */}
+      <Card title="API 配置">
         <Form
           form={form}
           layout="vertical"
@@ -74,40 +94,43 @@ const Settings: React.FC = () => {
           }}
         >
           <Form.Item
-            label="API 基础地址"
+            label={
+              <Space>
+                <GlobalOutlined />
+                <span>API 基础地址</span>
+              </Space>
+            }
             name="base_url"
             rules={[{ required: true, message: '请输入 API 基础地址' }]}
-            tooltip="OpenAI 兼容接口的基础地址，例如 https://api.openai.com/v1"
+            tooltip="OpenAI 兼容接口的基础地址"
           >
-            <Input prefix={<GlobalOutlined />} placeholder="https://api.openai.com/v1" />
+            <Input placeholder="https://api.openai.com/v1" style={{ borderRadius: '6px' }} />
           </Form.Item>
 
           <Form.Item
-            label="API 密钥"
+            label={
+              <Space>
+                <LockOutlined />
+                <span>API 密钥</span>
+              </Space>
+            }
             name="api_key"
             rules={[{ required: !settings, message: '请输入 API 密钥' }]}
             tooltip={settings ? "留空表示不修改已保存的密钥" : "请输入您的 API 密钥"}
           >
-            <Input.Password prefix={<LockOutlined />} placeholder={settings ? "••••••••••••••••" : "sk-..."} />
+            <Input.Password
+              placeholder={settings ? "••••••••••••••••" : "sk-..."}
+              style={{ borderRadius: '6px' }}
+            />
           </Form.Item>
 
           <Form.Item
             label="默认模型"
             name="model"
             rules={[{ required: true, message: '请输入模型名称' }]}
+            tooltip="例如: gpt-3.5-turbo, gpt-4, qwen-plus, qwen-max 等"
           >
-            <Input placeholder="gpt-3.5-turbo, gpt-4, qwen-max 等" />
-          </Form.Item>
-
-          <Form.Item>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              loading={updateMutation.isPending}
-              block
-            >
-              保存配置
-            </Button>
+            <Input placeholder="gpt-3.5-turbo" style={{ borderRadius: '6px' }} />
           </Form.Item>
         </Form>
       </Card>

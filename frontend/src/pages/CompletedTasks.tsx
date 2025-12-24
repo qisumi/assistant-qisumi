@@ -1,151 +1,84 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  List, Card, Button, Space, Typography, Spin, Empty, Modal, 
-  message as antdMessage, Tooltip 
+import { useQuery } from '@tanstack/react-query';
+import {
+  Card, Button, Typography, Spin, Row, Col
 } from 'antd';
-import { 
-  ArrowLeftOutlined, CheckCircleOutlined, DeleteOutlined, 
-  CalendarOutlined, FieldTimeOutlined 
+import {
+  ArrowLeftOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
-import { fetchCompletedTasks, deleteTask } from '@/api/tasks';
+import { fetchCompletedTasks } from '@/api/tasks';
 import type { Task } from '@/types';
-import { formatDate, formatDateTime, formatRelativeTime } from '@/utils/format';
-import { getStatusTag, getPriorityTag } from '@/utils/tags';
-import { confirmDelete } from '@/utils/dialog';
+import { TaskCard } from '@/components/ui';
+import { PageHeader } from '@/components/layout/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const CompletedTasks: React.FC = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const { data: tasks, isLoading, isError } = useQuery({
     queryKey: ['completedTasks'],
     queryFn: fetchCompletedTasks,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteTask,
-    onSuccess: () => {
-      antdMessage.success('任务已删除');
-      queryClient.invalidateQueries({ queryKey: ['completedTasks'] });
-    },
-    onError: () => {
-      antdMessage.error('删除失败，请稍后重试');
-    },
-  });
-
-  const handleDeleteTask = (taskId: number, taskTitle: string) => {
-    confirmDelete('任务', taskTitle, () => deleteMutation.mutate(taskId));
-  };
-
   if (isLoading) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', paddingTop: 100 }}>
         <Spin size="large" />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Space>
-          <Button 
-            icon={<ArrowLeftOutlined />} 
+    <div>
+      <PageHeader
+        title="已完成任务"
+        extra={
+          <Button
+            icon={<ArrowLeftOutlined />}
             onClick={() => navigate('/tasks')}
           >
             返回任务列表
           </Button>
-          <Title level={2} style={{ margin: 0 }}>已完成任务</Title>
-        </Space>
-      </div>
+        }
+      />
 
       {isError ? (
-        <Card>
+        <Card style={{ textAlign: 'center', padding: 48 }}>
           <Text type="danger">加载任务失败，请稍后重试</Text>
         </Card>
       ) : tasks && tasks.length > 0 ? (
-        <List
-          grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3, xxl: 3 }}
-          dataSource={tasks}
-          renderItem={(task: Task) => (
-            <List.Item>
-              <Card
-                hoverable
-                title={task.title}
-                extra={
-                  <Space>
-                    {getStatusTag(task.status)}
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteTask(task.id, task.title);
-                      }}
-                    />
-                  </Space>
-                }
+        <Row gutter={[16, 16]}>
+          {tasks.map((task: Task, index: number) => (
+            <Col key={task.id} xs={24} sm={12} md={12} lg={8} xl={8} xxl={6}>
+              <TaskCard
+                task={task}
                 onClick={() => navigate(`/tasks/${task.id}`)}
-              >
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Text type="secondary" ellipsis={{ tooltip: task.description }}>
-                    {task.description || '无描述'}
-                  </Text>
-                  
-                  {/* 时间信息 */}
-                  <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-                    <Space size={8} wrap>
-                      {task.createdAt && (
-                        <Tooltip title={`创建于 ${formatDateTime(task.createdAt)}`}>
-                          <Space size={4}>
-                            <FieldTimeOutlined style={{ fontSize: 12 }} />
-                            <Text type="secondary">创建: {formatRelativeTime(task.createdAt)}</Text>
-                          </Space>
-                        </Tooltip>
-                      )}
-                      {task.completedAt && (
-                        <Tooltip title={`完成于 ${formatDateTime(task.completedAt)}`}>
-                          <Space size={4}>
-                            <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
-                            <Text type="secondary">完成: {formatRelativeTime(task.completedAt)}</Text>
-                          </Space>
-                        </Tooltip>
-                      )}
-                      {task.dueAt && (
-                        <Tooltip title={`截止于 ${formatDateTime(task.dueAt)}`}>
-                          <Space size={4}>
-                            <CalendarOutlined style={{ fontSize: 12 }} />
-                            <Text type="secondary">截止: {formatDate(task.dueAt)}</Text>
-                          </Space>
-                        </Tooltip>
-                      )}
-                    </Space>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                    <Space>
-                      {getPriorityTag(task.priority)}
-                    </Space>
-                  </div>
-                </Space>
-              </Card>
-            </List.Item>
-          )}
-        />
+                index={index}
+              />
+            </Col>
+          ))}
+        </Row>
       ) : (
-        <Empty 
-          description="暂无已完成任务" 
-          style={{ marginTop: 64 }}
-        >
-          <Button type="primary" onClick={() => navigate('/tasks')}>
-            查看待办任务
-          </Button>
-        </Empty>
+        <div style={{
+          padding: 64,
+          textAlign: 'center',
+          background: '#ffffff',
+          borderRadius: '12px'
+        }}>
+          <CheckCircleOutlined style={{ fontSize: 64, color: '#d3d3d7', marginBottom: 16 }} />
+          <div>
+            <Text type="secondary" style={{ fontSize: '16px' }}>
+              暂无已完成任务
+            </Text>
+          </div>
+          <div style={{ marginTop: 24 }}>
+            <Button type="primary" onClick={() => navigate('/tasks')}>
+              查看待办任务
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

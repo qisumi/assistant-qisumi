@@ -36,7 +36,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 1. 从这段文本中抽取出一个「任务」（task）及其基本信息：
    - title: 任务标题，用一句话概括
    - description: 简短描述
-   - due_at: 任务预期完成时间（ISO 8601 格式字符串，例如 2025-12-08T23:00:00；如果文本没有明确时间，可以为 null）
+   - due_at: 任务截止时间（ISO 8601 格式字符串，例如 2025-12-08T23:00:00；如果文本没有明确时间，可以为 null）
    - priority: low / medium / high，基于文本紧急程度和重要性进行判断
 2. 把任务拆解为一个有顺序的步骤列表 steps：
    - 每个步骤包含：

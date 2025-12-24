@@ -1,4 +1,3 @@
-import React from 'react';
 import { Tag } from 'antd';
 import { TASK_STATUS_LABELS, TASK_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/constants';
 

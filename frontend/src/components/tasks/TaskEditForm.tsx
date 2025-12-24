@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Select, DatePicker, Switch, Button, Space, message as antdMessage } from 'antd';
+import { Form, Input, Select, DatePicker, Switch, Button, Space, App } from 'antd';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { Task } from '@/types';
@@ -18,18 +18,19 @@ export const TaskEditForm: React.FC<TaskEditFormProps> = ({ task, onCancel, onSu
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const { message } = App.useApp();
 
   const updateMutation = useMutation({
     mutationFn: (fields: UpdateTaskFields) => updateTask(task.id, fields),
     onSuccess: () => {
-      antdMessage.success('任务更新成功');
+      message.success('任务更新成功');
       queryClient.invalidateQueries({ queryKey: ['taskDetail', String(task.id)] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       onSuccess?.();
     },
     onError: (err: any) => {
       console.error(err);
-      antdMessage.error('更新失败，请稍后重试');
+      message.error('更新失败，请稍后重试');
     },
   });
 
@@ -67,7 +68,7 @@ export const TaskEditForm: React.FC<TaskEditFormProps> = ({ task, onCancel, onSu
       if (Object.keys(fields).length > 0) {
         await updateMutation.mutateAsync(fields);
       } else {
-        antdMessage.info('没有任何更改');
+        message.info('没有任何更改');
         onSuccess?.();
       }
     } catch (err) {

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Card, Tag, Button, Space, Typography, Spin, Divider, List, Checkbox, 
-  Breadcrumb, Modal, message as antdMessage, Tooltip, Descriptions, 
-  Form, Input, InputNumber, DatePicker
+  Card, Tag, Button, Space, Typography, Spin, Divider, List, Checkbox,
+  Breadcrumb, Modal, App, Tooltip, Descriptions,
+  Form, Input, InputNumber, DatePicker, Row, Col
 } from 'antd';
-import { 
-  ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, 
-  CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined 
+import {
+  ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined,
+  CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { fetchTaskDetail, deleteTask, addTaskStep, deleteTaskStep, updateTask } from '@/api/tasks';
@@ -16,12 +16,12 @@ import { fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { TaskEditForm } from '@/components/tasks/TaskEditForm';
 import { StepEditableField } from '@/components/tasks/StepEditableField';
+import { StatusBadge, PriorityBadge, Markdown } from '@/components/ui';
 import type { TaskStep } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime, formatTimeRange, isOverdue } from '@/utils/format';
-import { getStatusTag, getPriorityTag } from '@/utils/tags';
 import { confirmDelete } from '@/utils/dialog';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +35,7 @@ const TaskDetail: React.FC = () => {
   const [addStepForm] = Form.useForm();
   const [titleValue, setTitleValue] = useState('');
   const [descriptionValue, setDescriptionValue] = useState('');
+  const { message } = App.useApp();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['taskDetail', id],
@@ -60,18 +61,18 @@ const TaskDetail: React.FC = () => {
     },
     onError: (err: any) => {
       console.error(err);
-      antdMessage.error('发送失败，请稍后重试');
+      message.error('发送失败，请稍后重试');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteTask,
     onSuccess: () => {
-      antdMessage.success('任务已删除');
+      message.success('任务已删除');
       navigate('/tasks');
     },
     onError: () => {
-      antdMessage.error('删除失败，请稍后重试');
+      message.error('删除失败，请稍后重试');
     },
   });
 
@@ -83,7 +84,7 @@ const TaskDetail: React.FC = () => {
     },
     onError: (err: any) => {
       console.error(err);
-      antdMessage.error('更新失败，请稍后重试');
+      message.error('更新失败，请稍后重试');
     },
   });
 
@@ -91,13 +92,13 @@ const TaskDetail: React.FC = () => {
     mutationFn: ({ taskId, stepData }: { taskId: string | number; stepData: any }) =>
       addTaskStep(taskId, stepData),
     onSuccess: () => {
-      antdMessage.success('步骤添加成功');
+      message.success('步骤添加成功');
       queryClient.invalidateQueries({ queryKey: ['taskDetail', id] });
       setIsAddStepModalVisible(false);
       addStepForm.resetFields();
     },
     onError: (error: any) => {
-      antdMessage.error(error?.response?.data?.error || '添加失败，请稍后重试');
+      message.error(error?.response?.data?.error || '添加失败，请稍后重试');
     },
   });
 
@@ -105,11 +106,11 @@ const TaskDetail: React.FC = () => {
     mutationFn: ({ taskId, stepId }: { taskId: string | number; stepId: string | number }) =>
       deleteTaskStep(taskId, stepId),
     onSuccess: () => {
-      antdMessage.success('步骤已删除');
+      message.success('步骤已删除');
       queryClient.invalidateQueries({ queryKey: ['taskDetail', id] });
     },
     onError: (error: any) => {
-      antdMessage.error(error?.response?.data?.error || '删除失败，请稍后重试');
+      message.error(error?.response?.data?.error || '删除失败，请稍后重试');
     },
   });
 
@@ -139,10 +140,10 @@ const TaskDetail: React.FC = () => {
 
   const handleUpdateDueAt = async (date: dayjs.Dayjs | null) => {
     try {
-      await updateTaskMutation.mutateAsync({ 
-        dueAt: date ? date.toISOString() : null 
+      await updateTaskMutation.mutateAsync({
+        dueAt: date ? date.toISOString() : null
       });
-      antdMessage.success('截止时间已更新');
+      message.success('截止时间已更新');
       setEditingDueAt(false);
     } catch (error) {
       // 错误已在mutation中处理
@@ -151,13 +152,13 @@ const TaskDetail: React.FC = () => {
 
   const handleUpdateTitle = async () => {
     if (titleValue.trim() === '') {
-      antdMessage.error('标题不能为空');
+      message.error('标题不能为空');
       return;
     }
     if (titleValue !== task.title) {
       try {
         await updateTaskMutation.mutateAsync({ title: titleValue });
-        antdMessage.success('标题已更新');
+        message.success('标题已更新');
       } catch (error) {
         // 错误已在mutation中处理
       }
@@ -169,7 +170,7 @@ const TaskDetail: React.FC = () => {
     if (descriptionValue !== task.description) {
       try {
         await updateTaskMutation.mutateAsync({ description: descriptionValue });
-        antdMessage.success('描述已更新');
+        message.success('描述已更新');
       } catch (error) {
         // 错误已在mutation中处理
       }
@@ -179,7 +180,7 @@ const TaskDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', paddingTop: 100 }}>
         <Spin size="large" />
       </div>
     );
@@ -200,7 +201,8 @@ const TaskDetail: React.FC = () => {
   const messages = messagesData?.messages ?? data.messages ?? [];
 
   return (
-    <div style={{ padding: '12px 24px' }}>
+    <div>
+      {/* Breadcrumb */}
       <Breadcrumb
         style={{ marginBottom: 16 }}
         items={[
@@ -209,9 +211,10 @@ const TaskDetail: React.FC = () => {
         ]}
       />
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-        {/* 左侧：任务信息与步骤 */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Responsive layout */}
+      <Row gutter={[24, 24]}>
+        {/* Left: Task info */}
+        <Col xs={24} lg={14} xl={16}>
           <Card>
             {editingTask ? (
               <div>
@@ -227,11 +230,40 @@ const TaskDetail: React.FC = () => {
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    {/* 任务标题 - 可点击编辑 */}
+                {/* Title and badges */}
+                <div style={{ marginBottom: 16 }}>
+                  {/* Action buttons - always visible at top */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <Space wrap size="small">
+                      <Button
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => navigate('/tasks')}
+                        size="small"
+                      >
+                        返回
+                      </Button>
+                      <Button
+                        icon={<EditOutlined />}
+                        onClick={() => setEditingTask(true)}
+                        size="small"
+                      >
+                        编辑
+                      </Button>
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={handleDeleteTask}
+                        size="small"
+                      >
+                        删除
+                      </Button>
+                    </Space>
+                  </div>
+
+                  {/* Title section */}
+                  <div>
                     {editingTitle ? (
-                      <Space.Compact style={{ width: '100%', maxWidth: 600 }}>
+                      <Space.Compact style={{ width: '100%' }}>
                         <Input
                           value={titleValue}
                           onChange={(e) => setTitleValue(e.target.value)}
@@ -255,47 +287,59 @@ const TaskDetail: React.FC = () => {
                         />
                       </Space.Compact>
                     ) : (
-                      <Title 
-                        level={3} 
-                        style={{ 
-                          margin: 0, 
+                      <div
+                        style={{
                           cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                          display: 'inline-block'
+                          padding: '8px',
+                          borderRadius: 8,
+                          transition: 'background-color 0.2s',
                         }}
                         onClick={() => {
                           setTitleValue(task.title);
                           setEditingTitle(true);
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        {task.title}
-                      </Title>
+                        <Title
+                          level={3}
+                          style={{
+                            margin: 0,
+                            fontSize: 'clamp(18px, 4vw, 24px)',
+                            wordBreak: 'break-word',
+                            lineHeight: 1.3,
+                          }}
+                          ellipsis={{ tooltip: task.title }}
+                        >
+                          {task.title}
+                        </Title>
+                      </div>
                     )}
-                    <Space style={{ marginTop: 8 }}>
-                      {getStatusTag(task.status)}
-                      {getPriorityTag(task.priority)}
-                      {task.isFocusToday && <Tag color="gold">今日聚焦</Tag>}
+                    <Space wrap style={{ marginTop: 12 }}>
+                      <StatusBadge status={task.status} />
+                      <PriorityBadge priority={task.priority} />
+                      {task.isFocusToday && (
+                        <Tag
+                          color="gold"
+                          style={{
+                            borderRadius: '4px',
+                            fontWeight: 500,
+                            fontSize: '12px',
+                            padding: '2px 8px'
+                          }}
+                        >
+                          今日聚焦
+                        </Tag>
+                      )}
                     </Space>
                   </div>
-                  <Space>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tasks')}>返回</Button>
-                    <Button icon={<EditOutlined />} onClick={() => setEditingTask(true)}>编辑</Button>
-                    <Button
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={handleDeleteTask}
-                    >
-                      删除任务
-                    </Button>
-                  </Space>
                 </div>
 
                 <Divider />
 
+                {/* Description with markdown */}
                 <div style={{ marginBottom: 24 }}>
                   <Title level={5}>任务描述</Title>
-                  {/* 任务描述 - 可点击编辑 */}
                   {editingDescription ? (
                     <div>
                       <Input.TextArea
@@ -326,89 +370,89 @@ const TaskDetail: React.FC = () => {
                       </Space>
                     </div>
                   ) : (
-                    <div 
+                    <div
                       onClick={() => {
                         setDescriptionValue(task.description);
                         setEditingDescription(true);
-                      }} 
-                      style={{ 
+                      }}
+                      style={{
                         cursor: 'pointer',
-                        padding: '8px',
-                        borderRadius: 4,
-                        minHeight: 60
+                        padding: '12px',
+                        borderRadius: 8,
+                        minHeight: 60,
+                        border: '1px solid #e8e8eb'
                       }}
                     >
                       {task.description ? (
-                        <Paragraph type="secondary" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                          {task.description}
-                        </Paragraph>
+                        <Markdown content={task.description} />
                       ) : (
                         <Text type="secondary" italic>点击添加描述...</Text>
                       )}
                     </div>
                   )}
-              
-              {/* 时间信息 */}
-              <Descriptions size="small" column={2} style={{ marginTop: 16 }}>
-                <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />创建时间</Space>}>
-                  <Tooltip title={formatDateTime(task.createdAt)}>
-                    {formatRelativeTime(task.createdAt)}
-                  </Tooltip>
-                </Descriptions.Item>
-                <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />更新时间</Space>}>
-                  <Tooltip title={formatDateTime(task.updatedAt)}>
-                    {formatRelativeTime(task.updatedAt)}
-                  </Tooltip>
-                </Descriptions.Item>
-                <Descriptions.Item label={<Space size={4}><CalendarOutlined />截止日期</Space>}>
-                  {editingDueAt ? (
-                    <Space.Compact>
-                      <DatePicker
-                        showTime
-                        format="YYYY-MM-DD HH:mm"
-                        defaultValue={task.dueAt ? dayjs(task.dueAt) : null}
-                        onChange={(date) => handleUpdateDueAt(date)}
-                        onBlur={() => setEditingDueAt(false)}
-                        autoFocus
-                        open
-                        style={{ width: 200 }}
-                      />
-                      <Button
-                        size="small"
-                        icon={<CloseOutlined />}
-                        onClick={() => setEditingDueAt(false)}
-                      />
-                    </Space.Compact>
-                  ) : (
-                    <div
-                      onClick={() => setEditingDueAt(true)}
-                      style={{
-                        cursor: 'pointer',
-                        display: 'inline-block'
-                      }}
-                    >
-                      {task.dueAt ? (
-                        <Tooltip title={formatDateTime(task.dueAt)}>
-                          <Text strong style={{ color: isOverdue(task.dueAt) ? '#ff4d4f' : '#1890ff' }}>
-                            {formatDate(task.dueAt)}
-                          </Text>
-                        </Tooltip>
-                      ) : (
-                        <Text type="warning" italic>未设置</Text>
-                      )}
-                    </div>
-                  )}
-                </Descriptions.Item>
-                {task.completedAt && (
-                  <Descriptions.Item label={<Space size={4}><CheckCircleOutlined />完成时间</Space>}>
-                    <Tooltip title={formatDateTime(task.completedAt)}>
-                      {formatRelativeTime(task.completedAt)}
+                </div>
+
+                {/* Time info */}
+                <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginBottom: 24 }}>
+                  <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />创建时间</Space>}>
+                    <Tooltip title={formatDateTime(task.createdAt)}>
+                      {formatRelativeTime(task.createdAt)}
                     </Tooltip>
                   </Descriptions.Item>
-                )}
-              </Descriptions>
-            </div>
+                  <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />更新时间</Space>}>
+                    <Tooltip title={formatDateTime(task.updatedAt)}>
+                      {formatRelativeTime(task.updatedAt)}
+                    </Tooltip>
+                  </Descriptions.Item>
+                  <Descriptions.Item label={<Space size={4}><CalendarOutlined />截止日期</Space>}>
+                    {editingDueAt ? (
+                      <Space.Compact>
+                        <DatePicker
+                          showTime
+                          format="YYYY-MM-DD HH:mm"
+                          defaultValue={task.dueAt ? dayjs(task.dueAt) : null}
+                          onChange={(date) => handleUpdateDueAt(date)}
+                          onBlur={() => setEditingDueAt(false)}
+                          autoFocus
+                          open
+                          style={{ width: 200 }}
+                        />
+                        <Button
+                          size="small"
+                          icon={<CloseOutlined />}
+                          onClick={() => setEditingDueAt(false)}
+                        />
+                      </Space.Compact>
+                    ) : (
+                      <div
+                        onClick={() => setEditingDueAt(true)}
+                        style={{
+                          cursor: 'pointer',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {task.dueAt ? (
+                          <Tooltip title={formatDateTime(task.dueAt)}>
+                            <Text strong style={{ color: isOverdue(task.dueAt) ? '#ff4d4f' : '#1890ff' }}>
+                              {formatDate(task.dueAt)}
+                            </Text>
+                          </Tooltip>
+                        ) : (
+                          <Text type="warning" italic>未设置</Text>
+                        )}
+                      </div>
+                    )}
+                  </Descriptions.Item>
+                  {task.completedAt && (
+                    <Descriptions.Item label={<Space size={4}><CheckCircleOutlined />完成时间</Space>}>
+                      <Tooltip title={formatDateTime(task.completedAt)}>
+                        {formatRelativeTime(task.completedAt)}
+                      </Tooltip>
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
 
+                {/* Steps */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <Title level={5} style={{ margin: 0 }}>执行步骤</Title>
@@ -423,30 +467,24 @@ const TaskDetail: React.FC = () => {
                   </div>
                   <List
                     dataSource={task.steps || []}
-                    renderItem={(step: TaskStep) => (
-                      <List.Item
-                        actions={[
-                          <Button
-                            key="delete"
-                            type="text"
-                            danger
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            onClick={() => handleDeleteStep(step.id, step.title)}
-                          />
-                        ]}
+                    renderItem={(step: TaskStep, index: number) => (
+                      <div
+                        key={step.id}
+                        style={{
+                          borderBottom: index < (task.steps?.length || 0) - 1 ? '1px solid #f0f0f0' : 'none',
+                          padding: '12px 0',
+                        }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-                          <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 4 }} />
-                          <div style={{ marginLeft: 12, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                          <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 2, flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <StepEditableField step={step} taskId={task.id} />
-                            {/* 步骤时间信息 - 始终显示 */}
-                            <Space size={12} style={{ marginTop: 8 }}>
+                            <Space size={8} wrap style={{ marginTop: 6 }}>
                               {step.plannedStart && step.plannedEnd && (
                                 <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
                                   <Space size={4}>
-                                    <CalendarOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <CalendarOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#8c8c8c' }} />
+                                    <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
                                       {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
                                     </Text>
                                   </Space>
@@ -455,8 +493,8 @@ const TaskDetail: React.FC = () => {
                               {step.completedAt && (
                                 <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
                                   <Space size={4}>
-                                    <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <CheckCircleOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#52c41a' }} />
+                                    <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
                                       {formatRelativeTime(step.completedAt)}
                                     </Text>
                                   </Space>
@@ -464,19 +502,31 @@ const TaskDetail: React.FC = () => {
                               )}
                             </Space>
                           </div>
+                          <Button
+                            type="text"
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDeleteStep(step.id, step.title)}
+                            style={{ flexShrink: 0, padding: '4px 8px' }}
+                          />
                         </div>
-                      </List.Item>
+                      </div>
                     )}
                   />
                 </div>
               </>
             )}
           </Card>
-        </div>
+        </Col>
 
-        {/* 右侧：聊天窗口 */}
-        <div style={{ width: 400, flexShrink: 0 }}>
-          <Card title="小奇（任务）" styles={{ body: { padding: 0 } }}>
+        {/* Right: Chat */}
+        <Col xs={24} lg={10} xl={8}>
+          <Card
+            title="小奇（任务）"
+            styles={{ body: { padding: 0 } }}
+            style={{ position: 'sticky', top: 24 }}
+          >
             <ChatWindow
               messages={messages}
               onSend={(content) => sendMutation.mutateAsync(content)}
@@ -484,10 +534,10 @@ const TaskDetail: React.FC = () => {
               height={600}
             />
           </Card>
-        </div>
-      </div>
+        </Col>
+      </Row>
 
-      {/* 添加步骤对话框 */}
+      {/* Add step modal */}
       <Modal
         title="添加步骤"
         open={isAddStepModalVisible}
