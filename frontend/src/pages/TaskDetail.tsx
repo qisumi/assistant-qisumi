@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,11 +17,13 @@ import {
   Tooltip,
   Descriptions
 } from 'antd';
-import { ArrowLeftOutlined, ClockCircleOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ClockCircleOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, CheckCircleOutlined, EditOutlined } from '@ant-design/icons';
 
 import { fetchTaskDetail, deleteTask } from '@/api/tasks';
 import { fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
 import { ChatWindow } from '@/components/chat/ChatWindow';
+import { TaskEditForm } from '@/components/tasks/TaskEditForm';
+import { StepEditableField } from '@/components/tasks/StepEditableField';
 import type { TaskStep } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime, formatTimeRange, isOverdue } from '@/utils/format';
 
@@ -31,6 +33,7 @@ const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [editingTask, setEditingTask] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['taskDetail', id],
@@ -160,35 +163,51 @@ const TaskDetail: React.FC = () => {
         {/* 左侧：任务信息与步骤 */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {editingTask ? (
               <div>
-                <Title level={3} style={{ margin: 0 }}>{task.title}</Title>
-                <Space style={{ marginTop: 8 }}>
-                  {getStatusTag(task.status)}
-                  <Tag color={task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'orange' : 'blue'}>
-                    {(priorityLabels[task.priority] || task.priority)}优先级
-                  </Tag>
-                </Space>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Title level={4} style={{ margin: 0 }}>编辑任务</Title>
+                  <Button onClick={() => setEditingTask(false)}>取消</Button>
+                </div>
+                <TaskEditForm
+                  task={task}
+                  onCancel={() => setEditingTask(false)}
+                  onSuccess={() => setEditingTask(false)}
+                />
               </div>
-              <Space>
-                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tasks')}>返回</Button>
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={handleDeleteTask}
-                >
-                  删除任务
-                </Button>
-              </Space>
-            </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <Title level={3} style={{ margin: 0 }}>{task.title}</Title>
+                    <Space style={{ marginTop: 8 }}>
+                      {getStatusTag(task.status)}
+                      <Tag color={task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'orange' : 'blue'}>
+                        {(priorityLabels[task.priority] || task.priority)}优先级
+                      </Tag>
+                      {task.isFocusToday && <Tag color="gold">今日聚焦</Tag>}
+                    </Space>
+                  </div>
+                  <Space>
+                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tasks')}>返回</Button>
+                    <Button icon={<EditOutlined />} onClick={() => setEditingTask(true)}>编辑</Button>
+                    <Button
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={handleDeleteTask}
+                    >
+                      删除任务
+                    </Button>
+                  </Space>
+                </div>
 
-            <Divider />
+                <Divider />
 
-            <div style={{ marginBottom: 24 }}>
-              <Title level={5}>任务描述</Title>
-              <Paragraph type="secondary">
-                {task.description || '暂无描述'}
-              </Paragraph>
+                <div style={{ marginBottom: 24 }}>
+                  <Title level={5}>任务描述</Title>
+                  <Paragraph type="secondary">
+                    {task.description || '暂无描述'}
+                  </Paragraph>
               
               {/* 时间信息 */}
               <Descriptions size="small" column={2} style={{ marginTop: 16 }}>
@@ -221,60 +240,52 @@ const TaskDetail: React.FC = () => {
               </Descriptions>
             </div>
 
-            <div>
-              <Title level={5}>执行步骤</Title>
-              <List
-                dataSource={task.steps || []}
-                renderItem={(step: TaskStep) => (
-                  <List.Item>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-                      <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 4 }} />
-                      <div style={{ marginLeft: 12, flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Text strong delete={step.status === 'done'}>{step.title}</Text>
-                          <Tag color={getStepStatusColor(step.status)}>
-                            {stepStatusLabels[step.status] || step.status}
-                          </Tag>
-                        </div>
-                        {step.detail && (
-                          <Paragraph type="secondary" style={{ fontSize: 12, margin: '4px 0' }}>
-                            {step.detail}
-                          </Paragraph>
-                        )}
-                        {/* 步骤时间信息 */}
-                        <Space size={12} style={{ marginTop: 4 }}>
-                          {step.estimateMinutes && (
-                            <Space size={4}>
-                              <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                预计 {step.estimateMinutes} 分钟
-                              </Text>
+                <div>
+                  <Title level={5}>执行步骤</Title>
+                  <List
+                    dataSource={task.steps || []}
+                    renderItem={(step: TaskStep) => (
+                      <List.Item>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+                          <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 4 }} />
+                          <div style={{ marginLeft: 12, flex: 1 }}>
+                            <StepEditableField step={step} taskId={task.id} />
+                            {/* 步骤时间信息 */}
+                            <Space size={12} style={{ marginTop: 4 }}>
+                              {step.estimateMinutes && (
+                                <Space size={4}>
+                                  <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    预计 {step.estimateMinutes} 分钟
+                                  </Text>
+                                </Space>
+                              )}
+                              {step.plannedStart && step.plannedEnd && (
+                                <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    计划: {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
+                                  </Text>
+                                </Tooltip>
+                              )}
+                              {step.completedAt && (
+                                <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
+                                  <Space size={4}>
+                                    <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      {formatRelativeTime(step.completedAt)}
+                                    </Text>
+                                  </Space>
+                                </Tooltip>
+                              )}
                             </Space>
-                          )}
-                          {step.plannedStart && step.plannedEnd && (
-                            <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                计划: {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
-                              </Text>
-                            </Tooltip>
-                          )}
-                          {step.completedAt && (
-                            <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
-                              <Space size={4}>
-                                <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {formatRelativeTime(step.completedAt)}
-                                </Text>
-                              </Space>
-                            </Tooltip>
-                          )}
-                        </Space>
-                      </div>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </div>
+                          </div>
+                        </div>
+                      </List.Item>
+                    )}
+                  />
+                </div>
+              </>
+            )}
           </Card>
         </div>
 

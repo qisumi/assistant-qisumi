@@ -35,6 +35,7 @@ func (h *TaskHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/tasks", h.createTask)
 	rg.GET("/tasks/:id", h.getTask)
 	rg.PATCH("/tasks/:id", h.patchTask)
+	rg.PATCH("/tasks/:taskId/steps/:stepId", h.patchStep)
 	rg.DELETE("/tasks/:id", h.deleteTask)
 }
 
@@ -204,4 +205,34 @@ func (h *TaskHandler) deleteTask(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "task deleted successfully"})
+}
+
+// patchStep 更新步骤
+func (h *TaskHandler) patchStep(c *gin.Context) {
+	userID := GetUserID(c)
+	taskIDStr := c.Param("taskId")
+	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	stepIDStr := c.Param("stepId")
+	stepID, err := strconv.ParseUint(stepIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid step id"})
+		return
+	}
+
+	var fields task.UpdateStepFields
+	if err := c.ShouldBindJSON(&fields); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.taskSvc.UpdateStep(c, userID, taskID, stepID, fields); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "step updated"})
 }
