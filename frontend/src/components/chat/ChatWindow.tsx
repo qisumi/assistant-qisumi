@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { List, Input, Button, Avatar, Space, Typography, Tag } from 'antd';
-import { UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { UserOutlined, RobotOutlined, CheckCircleOutlined, CalendarOutlined, FileTextOutlined, BulbOutlined, SettingOutlined } from '@ant-design/icons';
 import type { Message } from '@/types';
 
 const { Text } = Typography;
@@ -18,12 +18,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   sending = false,
   height = 500,
 }) => {
-  const agentNameLabels: Record<string, string> = {
-    executor: '执行器',
-    planner: '规划器',
-    summarizer: '总结器',
-    global: '全局助手',
-    system: '系统',
+  const assistantName = '小奇';
+  const agentVariantLabels: Record<string, string> = {
+    executor: '执行',
+    planner: '规划',
+    summarizer: '总结',
+    global: '全局',
+  };
+
+  const agentVariantIcons: Record<string, React.ReactNode> = {
+    executor: <CheckCircleOutlined />,
+    planner: <CalendarOutlined />,
+    summarizer: <FileTextOutlined />,
+    global: <BulbOutlined />,
+  };
+
+  const agentVariantColors: Record<string, string> = {
+    executor: '#52c41a',
+    planner: '#722ed1',
+    summarizer: '#fa8c16',
+    global: '#faad14',
   };
 
   const [inputValue, setInputValue] = useState('');
@@ -59,11 +73,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           renderItem={(item) => {
             const isUser = item.role === 'user';
             const isSystem = item.role === 'system';
-            const agentLabel = item.agentName ? (agentNameLabels[item.agentName] || item.agentName) : null;
-            const senderLabel = isUser ? '我' : isSystem ? '系统' : '助手';
+            const variantLabel = item.agentName ? agentVariantLabels[item.agentName] : undefined;
+            const senderLabel = isUser ? '我' : isSystem ? '系统' : assistantName;
             const trimmedContent = item.content?.trim() ?? '';
             const isEmptyContent = trimmedContent.length === 0;
-            const emptyHint = isUser ? '（空消息）' : `${agentLabel || '助手'}暂未返回内容`;
+            const emptyHint = isUser ? '（空消息）' : `${senderLabel}${variantLabel ? `（${variantLabel}）` : ''}暂未返回内容`;
+
+            const avatarIcon = isUser
+              ? <UserOutlined />
+              : isSystem
+                ? <SettingOutlined />
+                : (item.agentName ? (agentVariantIcons[item.agentName] || <RobotOutlined />) : <RobotOutlined />);
+
+            const avatarBg = isUser
+              ? '#1677ff'
+              : isSystem
+                ? '#8c8c8c'
+                : (item.agentName ? (agentVariantColors[item.agentName] || '#13c2c2') : '#13c2c2');
 
             return (
               <List.Item style={{ border: 'none', padding: '8px 0' }}>
@@ -76,9 +102,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   }}
                 >
                   <Avatar
-                    icon={isUser ? <UserOutlined /> : <RobotOutlined />}
+                    icon={avatarIcon}
                     style={{
-                      backgroundColor: isUser ? '#1677ff' : '#52c41a',
+                      backgroundColor: avatarBg,
                       flexShrink: 0,
                     }}
                   />
@@ -97,10 +123,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       <Text type="secondary" style={{ fontSize: '12px' }}>
                         {senderLabel}
                       </Text>
-                      {!isSystem && agentLabel && (
-                        <Tag style={{ marginLeft: '8px' }}>
-                          {agentLabel}
-                        </Tag>
+                      {!isUser && !isSystem && variantLabel && (
+                        <Tag style={{ marginLeft: '8px' }}>{variantLabel}</Tag>
                       )}
                     </div>
                     <div

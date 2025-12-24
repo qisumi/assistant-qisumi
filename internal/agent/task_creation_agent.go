@@ -137,7 +137,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	}
 
 	return &AgentResponse{
-		AssistantMessage: "已从文本生成任务。",
+		AssistantMessage: "好的，我已经把这段内容整理成一个任务，并拆成了可执行的步骤。",
 		TaskPatches:      patches,
 	}, nil
 }

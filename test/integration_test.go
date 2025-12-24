@@ -30,6 +30,11 @@ func TestFullTaskWorkflow(t *testing.T) {
 		t.Fatalf("Failed to init GORM: %v", err)
 	}
 
+	// 确保测试库结构与当前模型一致（包含 completed_at 等新增字段）
+	if err := db.AutoMigrate(gormDB); err != nil {
+		t.Fatalf("Failed to auto-migrate database: %v", err)
+	}
+
 	// 创建测试用户
 	if err := SetupTestUser(dbConn); err != nil {
 		t.Fatalf("Failed to setup test user: %v", err)

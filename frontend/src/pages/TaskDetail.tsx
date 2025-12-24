@@ -280,7 +280,7 @@ const TaskDetail: React.FC = () => {
 
         {/* 右侧：聊天窗口 */}
         <div style={{ width: 400, flexShrink: 0 }}>
-          <Card title="任务助手" styles={{ body: { padding: 0 } }}>
+          <Card title="小奇（任务）" styles={{ body: { padding: 0 } }}>
             <ChatWindow
               messages={messages}
               onSend={(content) => sendMutation.mutateAsync(content)}

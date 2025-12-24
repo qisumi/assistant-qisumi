@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip } from 'antd';
-import { ArrowLeftOutlined, FileTextOutlined, CheckCircleOutlined, DeleteOutlined, CalendarOutlined, FieldTimeOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CheckCircleOutlined, DeleteOutlined, CalendarOutlined, FieldTimeOutlined } from '@ant-design/icons';
 
 import { fetchCompletedTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';

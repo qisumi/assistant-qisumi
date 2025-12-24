@@ -41,7 +41,7 @@ const AppLayout: React.FC = () => {
         {
             key: '/global-assistant',
             icon: <MessageOutlined />,
-            label: '全局助手',
+            label: '小奇（全局）',
         },
         {
             key: '/settings',

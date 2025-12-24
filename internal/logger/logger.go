@@ -11,7 +11,8 @@ import (
 )
 
 // Logger 全局logger实例
-var Logger *zap.Logger
+// 默认为 Nop，避免在未调用 Init 的场景（如部分测试）发生空指针 panic。
+var Logger *zap.Logger = zap.NewNop()
 
 // Init 初始化logger
 // logDir: 日志文件所在目录（通常是可执行文件所在目录）

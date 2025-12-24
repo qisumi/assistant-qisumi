@@ -25,11 +25,7 @@ const GlobalAssistant: React.FC = () => {
   const sessionId = session?.id;
 
   // 2. 拉取消息
-  const {
-    data: messagesData,
-    isLoading: loadingMessages,
-    refetch: refetchMessages,
-  } = useQuery({
+  const { data: messagesData } = useQuery({
     queryKey: ['sessionMessages', sessionId],
     queryFn: () => fetchSessionMessages(sessionId!),
     enabled: !!sessionId,
@@ -65,7 +61,7 @@ const GlobalAssistant: React.FC = () => {
   const handleStartNewConversation = () => {
     Modal.confirm({
       title: '确认开启新对话',
-      content: '这将清空当前全局助手的所有历史对话记录，确定要继续吗？',
+      content: '这将清空当前小奇（全局）的所有历史对话记录，确定要继续吗？',
       okText: '确定',
       cancelText: '取消',
       onOk: () => {
@@ -109,7 +105,7 @@ const GlobalAssistant: React.FC = () => {
             <Space align="center">
               <BulbOutlined style={{ fontSize: 24, color: '#faad14' }} />
               <Title level={3} style={{ margin: 0 }}>
-                全局助手
+                小奇（全局）
               </Title>
             </Space>
             <Paragraph type="secondary" style={{ marginTop: 8 }}>

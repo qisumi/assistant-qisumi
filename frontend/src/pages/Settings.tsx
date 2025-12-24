@@ -5,13 +5,13 @@ import { SettingOutlined, LockOutlined, GlobalOutlined } from '@ant-design/icons
 
 import { fetchLLMSettings, updateLLMSettings, type LLMSettings } from '@/api/settings';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
 const Settings: React.FC = () => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings } = useQuery({
     queryKey: ['llmSettings'],
     queryFn: fetchLLMSettings,
   });
