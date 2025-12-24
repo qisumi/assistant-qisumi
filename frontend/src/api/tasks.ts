@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Task, TaskDetailResponse } from '@/types';
+import type { Task, TaskDetailResponse, TaskStep } from '@/types';
 
 export async function fetchTasks(): Promise<Task[]> {
   const { data } = await apiClient.get<{ tasks: Task[]; total: number }>('/tasks');
@@ -17,6 +17,20 @@ export async function createTaskFromText(rawText: string): Promise<TaskDetailRes
     raw_text: rawText,
   });
   return data;
+}
+
+// 创建简单任务
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high';
+  isFocusToday?: boolean;
+  dueAt?: string | null;
+}
+
+export async function createTask(taskData: CreateTaskRequest): Promise<Task> {
+  const { data } = await apiClient.post<{ task: Task }>('/tasks', taskData);
+  return data.task;
 }
 
 // 删除任务
@@ -64,4 +78,29 @@ export async function updateTaskStep(
   fields: UpdateStepFields
 ): Promise<void> {
   await apiClient.patch(`/tasks/${taskId}/steps/${stepId}`, fields);
+}
+
+// 添加步骤
+export interface CreateStepRequest {
+  title: string;
+  detail?: string;
+  orderIndex: number;
+  status?: string;
+  estimateMinutes?: number;
+}
+
+export async function addTaskStep(
+  taskId: string | number,
+  stepData: CreateStepRequest
+): Promise<TaskStep> {
+  const { data } = await apiClient.post<{ step: TaskStep }>(`/tasks/${taskId}/steps`, stepData);
+  return data.step;
+}
+
+// 删除步骤
+export async function deleteTaskStep(
+  taskId: string | number,
+  stepId: string | number
+): Promise<void> {
+  await apiClient.delete(`/tasks/${taskId}/steps/${stepId}`);
 }

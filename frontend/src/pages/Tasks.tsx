@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip, Select } from 'antd';
+import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip, Select, Form, Input, DatePicker, Switch } from 'antd';
 import { PlusOutlined, FileTextOutlined, DeleteOutlined, CheckCircleOutlined, CalendarOutlined, FieldTimeOutlined, StarFilled } from '@ant-design/icons';
 
-import { fetchTasks, deleteTask } from '@/api/tasks';
+import { fetchTasks, deleteTask, createTask } from '@/api/tasks';
 import type { Task } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime, isOverdue } from '@/utils/format';
 
 const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 type SortOption = 'createdAt' | 'updatedAt' | 'dueAt' | 'focusToday';
 
@@ -16,6 +17,8 @@ const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [createForm] = Form.useForm();
 
   const { data: tasks, isLoading, isError } = useQuery({
     queryKey: ['tasks'],
@@ -70,6 +73,21 @@ const Tasks: React.FC = () => {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: (newTask) => {
+      antdMessage.success('任务创建成功');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setIsCreateModalVisible(false);
+      createForm.resetFields();
+      // 导航到新任务详情页
+      navigate(`/tasks/${newTask.id}`);
+    },
+    onError: (error: any) => {
+      antdMessage.error(error?.response?.data?.error || '创建失败，请稍后重试');
+    },
+  });
+
   const handleDeleteTask = (taskId: number, taskTitle: string) => {
     Modal.confirm({
       title: '确认删除',
@@ -79,6 +97,27 @@ const Tasks: React.FC = () => {
       cancelText: '取消',
       onOk: () => deleteMutation.mutate(taskId),
     });
+  };
+
+  const handleCreateTask = async () => {
+    try {
+      const values = await createForm.validateFields();
+      const taskData = {
+        title: values.title,
+        description: values.description || '',
+        priority: values.priority || 'medium',
+        isFocusToday: values.isFocusToday || false,
+        dueAt: values.dueAt ? values.dueAt.toISOString() : null,
+      };
+      createMutation.mutate(taskData);
+    } catch (error) {
+      // 表单验证失败
+    }
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreateModalVisible(false);
+    createForm.resetFields();
   };
 
   const getStatusTag = (status: string) => {
@@ -139,7 +178,7 @@ const Tasks: React.FC = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => { /* TODO: Implement simple create */ }}
+            onClick={() => setIsCreateModalVisible(true)}
           >
             新建任务
           </Button>
@@ -258,6 +297,75 @@ const Tasks: React.FC = () => {
           </Button>
         </Empty>
       )}
+
+      {/* 创建任务对话框 */}
+      <Modal
+        title="新建任务"
+        open={isCreateModalVisible}
+        onOk={handleCreateTask}
+        onCancel={handleCancelCreate}
+        okText="创建"
+        cancelText="取消"
+        confirmLoading={createMutation.isPending}
+        width={600}
+      >
+        <Form
+          form={createForm}
+          layout="vertical"
+          style={{ marginTop: 24 }}
+        >
+          <Form.Item
+            name="title"
+            label="任务标题"
+            rules={[{ required: true, message: '请输入任务标题' }]}
+          >
+            <Input placeholder="例如：完成项目文档" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="任务描述"
+          >
+            <TextArea
+              rows={4}
+              placeholder="描述任务的详细信息（可选）"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="priority"
+            label="优先级"
+            initialValue="medium"
+          >
+            <Select>
+              <Select.Option value="low">低</Select.Option>
+              <Select.Option value="medium">中</Select.Option>
+              <Select.Option value="high">高</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="dueAt"
+            label="截止时间"
+          >
+            <DatePicker
+              showTime
+              style={{ width: '100%' }}
+              placeholder="选择截止时间（可选）"
+              format="YYYY-MM-DD HH:mm"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="isFocusToday"
+            label="今日重点"
+            valuePropName="checked"
+            initialValue={false}
+          >
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

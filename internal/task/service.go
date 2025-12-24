@@ -45,11 +45,11 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 
 	// 3. 解析 JSON -> Task + Steps
 	var taskData struct {
-		Title       string         `json:"title"`
-		Description string         `json:"description"`
-		DueAt       *FlexibleTime  `json:"due_at,omitempty"`
-		Priority    string         `json:"priority"`
-		Steps       []TaskStep     `json:"steps"`
+		Title       string        `json:"title"`
+		Description string        `json:"description"`
+		DueAt       *FlexibleTime `json:"due_at,omitempty"`
+		Priority    string        `json:"priority"`
+		Steps       []TaskStep    `json:"steps"`
 	}
 
 	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
@@ -124,4 +124,21 @@ func (s *Service) DeleteTask(ctx context.Context, userID, taskID uint64) error {
 
 	// 执行删除
 	return s.repo.DeleteTask(ctx, userID, taskID)
+}
+
+// AddStep 添加步骤
+func (s *Service) AddStep(ctx context.Context, userID, taskID uint64, step *TaskStep) error {
+	// 验证任务是否存在且属于该用户
+	_, err := s.repo.GetTaskWithSteps(ctx, userID, taskID)
+	if err != nil {
+		return err
+	}
+
+	step.TaskID = taskID
+	return s.repo.AddStep(ctx, step)
+}
+
+// DeleteStep 删除步骤
+func (s *Service) DeleteStep(ctx context.Context, userID, taskID, stepID uint64) error {
+	return s.repo.DeleteStep(ctx, userID, taskID, stepID)
 }

@@ -35,8 +35,10 @@ func (h *TaskHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/tasks", h.createTask)
 	rg.GET("/tasks/:id", h.getTask)
 	rg.PATCH("/tasks/:id", h.patchTask)
-	rg.PATCH("/tasks/:taskId/steps/:stepId", h.patchStep)
 	rg.DELETE("/tasks/:id", h.deleteTask)
+	rg.POST("/tasks/:id/steps", h.addStep)
+	rg.PATCH("/tasks/:id/steps/:stepId", h.patchStep)
+	rg.DELETE("/tasks/:id/steps/:stepId", h.deleteStep)
 }
 
 type CreateFromTextReq struct {
@@ -210,7 +212,7 @@ func (h *TaskHandler) deleteTask(c *gin.Context) {
 // patchStep 更新步骤
 func (h *TaskHandler) patchStep(c *gin.Context) {
 	userID := GetUserID(c)
-	taskIDStr := c.Param("taskId")
+	taskIDStr := c.Param("id")
 	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
@@ -235,4 +237,61 @@ func (h *TaskHandler) patchStep(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "step updated"})
+}
+
+// addStep 添加步骤
+func (h *TaskHandler) addStep(c *gin.Context) {
+	userID := GetUserID(c)
+	taskIDStr := c.Param("id")
+	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	var step task.TaskStep
+	if err := c.ShouldBindJSON(&step); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.taskSvc.AddStep(c, userID, taskID, &step); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"step": step})
+}
+
+// deleteStep 删除步骤
+func (h *TaskHandler) deleteStep(c *gin.Context) {
+	userID := GetUserID(c)
+	taskIDStr := c.Param("id")
+	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
+		return
+	}
+
+	stepIDStr := c.Param("stepId")
+	stepID, err := strconv.ParseUint(stepIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid step id"})
+		return
+	}
+
+	if err := h.taskSvc.DeleteStep(c, userID, taskID, stepID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "step not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "step deleted successfully"})
 }

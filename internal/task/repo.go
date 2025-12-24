@@ -120,6 +120,27 @@ func (r *Repository) AddSteps(ctx context.Context, steps []TaskStep) error {
 	return r.db.WithContext(ctx).Create(&steps).Error
 }
 
+// DeleteStep 删除步骤
+func (r *Repository) DeleteStep(ctx context.Context, userID, taskID, stepID uint64) error {
+	// 使用子查询验证任务属于该用户
+	subQuery := r.db.
+		Select("id").
+		Table("tasks").
+		Where("id = ? AND user_id = ?", taskID, userID)
+
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND task_id IN (?)", stepID, subQuery).
+		Delete(&TaskStep{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 // AddDependency 添加任务依赖
 func (r *Repository) AddDependency(ctx context.Context, dep *TaskDependency) error {
 	return r.db.WithContext(ctx).Create(dep).Error

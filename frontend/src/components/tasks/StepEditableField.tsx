@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Input, Select, Typography, Space, Button, message as antdMessage } from 'antd';
-import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Input, Select, Typography, Space, Button, message as antdMessage, InputNumber } from 'antd';
+import { EditOutlined, CheckOutlined, CloseOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TaskStep, StepStatus } from '@/types';
 import { updateTaskStep, type UpdateStepFields } from '@/api/tasks';
@@ -18,10 +18,12 @@ export const StepEditableField: React.FC<StepEditableFieldProps> = ({ step, task
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDetail, setEditingDetail] = useState(false);
   const [editingStatus, setEditingStatus] = useState(false);
+  const [editingEstimate, setEditingEstimate] = useState(false);
   
   const [titleValue, setTitleValue] = useState(step.title);
   const [detailValue, setDetailValue] = useState(step.detail);
   const [statusValue, setStatusValue] = useState<StepStatus>(step.status);
+  const [estimateValue, setEstimateValue] = useState<number | null>(step.estimateMinutes || null);
   
   const queryClient = useQueryClient();
 
@@ -64,6 +66,14 @@ export const StepEditableField: React.FC<StepEditableFieldProps> = ({ step, task
     }
     setStatusValue(newStatus);
     setEditingStatus(false);
+  };
+
+  const handleUpdateEstimate = async () => {
+    if (estimateValue !== step.estimateMinutes) {
+      await updateMutation.mutateAsync({ estimateMinutes: estimateValue ?? undefined });
+      antdMessage.success('预计耗时已更新');
+    }
+    setEditingEstimate(false);
   };
 
   const stepStatusLabels: Record<string, string> = {
@@ -111,15 +121,17 @@ export const StepEditableField: React.FC<StepEditableFieldProps> = ({ step, task
             />
           </Space.Compact>
         ) : (
-          <Space>
+          <div
+            onClick={() => setEditingTitle(true)}
+            style={{
+              cursor: 'pointer',
+              display: 'inline-block',
+              padding: '2px 4px',
+              borderRadius: 4
+            }}
+          >
             <Text strong>{step.title}</Text>
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => setEditingTitle(true)}
-            />
-          </Space>
+          </div>
         )}
       </div>
 
@@ -165,8 +177,8 @@ export const StepEditableField: React.FC<StepEditableFieldProps> = ({ step, task
         )}
       </div>
 
-      {/* 状态编辑 */}
-      <div>
+      {/* 状态和预计耗时 */}
+      <Space>
         {editingStatus ? (
           <Select
             value={statusValue}
@@ -197,7 +209,51 @@ export const StepEditableField: React.FC<StepEditableFieldProps> = ({ step, task
             {stepStatusLabels[step.status]}
           </Space>
         )}
-      </div>
+        
+        {/* 预计耗时编辑 */}
+        {editingEstimate ? (
+          <Space.Compact>
+            <InputNumber
+              value={estimateValue}
+              onChange={(value) => setEstimateValue(value)}
+              min={1}
+              placeholder="分钟"
+              style={{ width: 100 }}
+              autoFocus
+              addonAfter="分钟"
+            />
+            <Button
+              type="primary"
+              size="small"
+              icon={<CheckOutlined />}
+              onClick={handleUpdateEstimate}
+            />
+            <Button
+              size="small"
+              icon={<CloseOutlined />}
+              onClick={() => {
+                setEstimateValue(step.estimateMinutes || null);
+                setEditingEstimate(false);
+              }}
+            />
+          </Space.Compact>
+        ) : (
+          <div
+            onClick={() => setEditingEstimate(true)}
+            style={{
+              cursor: 'pointer',
+              display: 'inline-block'
+            }}
+          >
+            <Space size={4}>
+              <ClockCircleOutlined style={{ fontSize: 12 }} />
+              <Text style={{ fontSize: 12 }}>
+                {step.estimateMinutes ? `预计 ${step.estimateMinutes} 分钟` : '设置预计耗时'}
+              </Text>
+            </Space>
+          </div>
+        )}
+      </Space>
     </div>
   );
 };

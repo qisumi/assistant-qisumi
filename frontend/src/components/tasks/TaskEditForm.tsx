@@ -120,7 +120,7 @@ export const TaskEditForm: React.FC<TaskEditFormProps> = ({ task, onCancel, onSu
       </Form.Item>
 
       <Form.Item label="截止时间" name="dueAt">
-        <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm" />
+        <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm" placeholder="选择截止时间（可选）" />
       </Form.Item>
 
       <Form.Item label="今日聚焦" name="isFocusToday" valuePropName="checked">
