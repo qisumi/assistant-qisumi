@@ -1,12 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip } from 'antd';
-import { ArrowLeftOutlined, CheckCircleOutlined, DeleteOutlined, CalendarOutlined, FieldTimeOutlined } from '@ant-design/icons';
-
+import { 
+  List, Card, Button, Space, Typography, Spin, Empty, Modal, 
+  message as antdMessage, Tooltip 
+} from 'antd';
+import { 
+  ArrowLeftOutlined, CheckCircleOutlined, DeleteOutlined, 
+  CalendarOutlined, FieldTimeOutlined 
+} from '@ant-design/icons';
 import { fetchCompletedTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/utils/format';
+import { getStatusTag, getPriorityTag } from '@/utils/tags';
+import { confirmDelete } from '@/utils/dialog';
 
 const { Title, Text } = Typography;
 
@@ -31,44 +38,7 @@ const CompletedTasks: React.FC = () => {
   });
 
   const handleDeleteTask = (taskId: number, taskTitle: string) => {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除任务「${taskTitle}」吗？此操作不可恢复。`,
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => deleteMutation.mutate(taskId),
-    });
-  };
-
-  const getStatusTag = (status: string) => {
-    const colors: Record<string, string> = {
-      todo: 'default',
-      in_progress: 'processing',
-      done: 'success',
-      cancelled: 'error',
-    };
-    const labels: Record<string, string> = {
-      todo: '待办',
-      in_progress: '进行中',
-      done: '已完成',
-      cancelled: '已取消',
-    };
-    return <Tag color={colors[status]}>{labels[status] || status}</Tag>;
-  };
-
-  const getPriorityTag = (priority: string) => {
-    const colors: Record<string, string> = {
-      low: 'blue',
-      medium: 'orange',
-      high: 'red',
-    };
-    const labels: Record<string, string> = {
-      low: '低',
-      medium: '中',
-      high: '高',
-    };
-    return <Tag color={colors[priority]}>{labels[priority] || priority}优先级</Tag>;
+    confirmDelete('任务', taskTitle, () => deleteMutation.mutate(taskId));
   };
 
   if (isLoading) {

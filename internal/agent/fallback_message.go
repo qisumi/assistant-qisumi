@@ -125,24 +125,24 @@ func buildStepStatusParts(statusCounts map[string]int) []string {
 		return nil
 	}
 
+	// 定义顺序：按重要性从高到低
 	order := []string{"done", "in_progress", "todo", "blocked", "locked"}
-	seen := make(map[string]bool)
 	parts := make([]string, 0, len(statusCounts))
+	seen := make(map[string]bool)
 
+	// 按预定义顺序添加
 	for _, status := range order {
-		count := statusCounts[status]
-		if count == 0 {
-			continue
+		if count := statusCounts[status]; count > 0 {
+			parts = append(parts, fmt.Sprintf("%d 个步骤标记为%s", count, labelForStepStatus(status)))
+			seen[status] = true
 		}
-		parts = append(parts, fmt.Sprintf("%d 个步骤标记为%s", count, labelForStepStatus(status)))
-		seen[status] = true
 	}
 
+	// 添加未在预定义顺序中的状态
 	for status, count := range statusCounts {
-		if seen[status] {
-			continue
+		if !seen[status] {
+			parts = append(parts, fmt.Sprintf("%d 个步骤标记为%s", count, labelForStepStatus(status)))
 		}
-		parts = append(parts, fmt.Sprintf("%d 个步骤标记为%s", count, labelForStepStatus(status)))
 	}
 
 	return parts

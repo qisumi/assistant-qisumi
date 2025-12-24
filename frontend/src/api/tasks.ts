@@ -1,25 +1,21 @@
 import apiClient from './client';
 import type { Task, TaskDetailResponse, TaskStep } from '@/types';
 
-export async function fetchTasks(): Promise<Task[]> {
-  const { data } = await apiClient.get<{ tasks: Task[]; total: number }>('/tasks');
+export const fetchTasks = async (): Promise<Task[]> => {
+  const { data } = await apiClient.get<{ tasks: Task[] }>('/tasks');
   return data.tasks;
-}
+};
 
-export async function fetchTaskDetail(taskId: string | number): Promise<TaskDetailResponse> {
-  const { data } = await apiClient.get<TaskDetailResponse>(`/tasks/${taskId}`);
+export const fetchTaskDetail = async (taskId: string | number): Promise<TaskDetailResponse> => {
+  const { data } = await apiClient.get(`/tasks/${taskId}`);
   return data;
-}
+};
 
-// 从文本创建任务
-export async function createTaskFromText(rawText: string): Promise<TaskDetailResponse> {
-  const { data } = await apiClient.post<TaskDetailResponse>('/tasks/from-text', {
-    raw_text: rawText,
-  });
+export const createTaskFromText = async (rawText: string): Promise<TaskDetailResponse> => {
+  const { data } = await apiClient.post('/tasks/from-text', { raw_text: rawText });
   return data;
-}
+};
 
-// 创建简单任务
 export interface CreateTaskRequest {
   title: string;
   description?: string;
@@ -28,23 +24,6 @@ export interface CreateTaskRequest {
   dueAt?: string | null;
 }
 
-export async function createTask(taskData: CreateTaskRequest): Promise<Task> {
-  const { data } = await apiClient.post<{ task: Task }>('/tasks', taskData);
-  return data.task;
-}
-
-// 删除任务
-export async function deleteTask(taskId: string | number): Promise<void> {
-  await apiClient.delete(`/tasks/${taskId}`);
-}
-
-// 获取已完成任务列表
-export async function fetchCompletedTasks(): Promise<Task[]> {
-  const { data } = await apiClient.get<{ tasks: Task[]; total: number }>('/tasks/completed');
-  return data.tasks;
-}
-
-// 更新任务字段
 export interface UpdateTaskFields {
   title?: string;
   description?: string;
@@ -55,11 +34,24 @@ export interface UpdateTaskFields {
   completedAt?: string | null;
 }
 
-export async function updateTask(taskId: string | number, fields: UpdateTaskFields): Promise<void> {
-  await apiClient.patch(`/tasks/${taskId}`, fields);
-}
+export const createTask = async (taskData: CreateTaskRequest): Promise<Task> => {
+  const { data } = await apiClient.post<{ task: Task }>('/tasks', taskData);
+  return data.task;
+};
 
-// 更新步骤字段
+export const deleteTask = async (taskId: string | number): Promise<void> => {
+  await apiClient.delete(`/tasks/${taskId}`);
+};
+
+export const fetchCompletedTasks = async (): Promise<Task[]> => {
+  const { data } = await apiClient.get<{ tasks: Task[] }>('/tasks/completed');
+  return data.tasks;
+};
+
+export const updateTask = async (taskId: string | number, fields: UpdateTaskFields): Promise<void> => {
+  await apiClient.patch(`/tasks/${taskId}`, fields);
+};
+
 export interface UpdateStepFields {
   title?: string;
   detail?: string;
@@ -72,15 +64,6 @@ export interface UpdateStepFields {
   completedAt?: string | null;
 }
 
-export async function updateTaskStep(
-  taskId: string | number,
-  stepId: string | number,
-  fields: UpdateStepFields
-): Promise<void> {
-  await apiClient.patch(`/tasks/${taskId}/steps/${stepId}`, fields);
-}
-
-// 添加步骤
 export interface CreateStepRequest {
   title: string;
   detail?: string;
@@ -89,18 +72,25 @@ export interface CreateStepRequest {
   estimateMinutes?: number;
 }
 
-export async function addTaskStep(
+export const updateTaskStep = async (
+  taskId: string | number,
+  stepId: string | number,
+  fields: UpdateStepFields
+): Promise<void> => {
+  await apiClient.patch(`/tasks/${taskId}/steps/${stepId}`, fields);
+};
+
+export const addTaskStep = async (
   taskId: string | number,
   stepData: CreateStepRequest
-): Promise<TaskStep> {
+): Promise<TaskStep> => {
   const { data } = await apiClient.post<{ step: TaskStep }>(`/tasks/${taskId}/steps`, stepData);
   return data.step;
-}
+};
 
-// 删除步骤
-export async function deleteTaskStep(
+export const deleteTaskStep = async (
   taskId: string | number,
   stepId: string | number
-): Promise<void> {
+): Promise<void> => {
   await apiClient.delete(`/tasks/${taskId}/steps/${stepId}`);
-}
+};

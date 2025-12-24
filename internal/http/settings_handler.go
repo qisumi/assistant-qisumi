@@ -1,8 +1,6 @@
 package http
 
 import (
-	"net/http"
-
 	"assistant-qisumi/internal/auth"
 
 	"github.com/gin-gonic/gin"
@@ -33,16 +31,16 @@ func (h *SettingsHandler) getLLMSettings(c *gin.Context) {
 
 	config, err := h.llmSettingService.GetLLMConfig(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
 	if config == nil {
-		c.JSON(http.StatusOK, gin.H{})
+		R.Success(c, gin.H{})
 		return
 	}
 
-	c.JSON(http.StatusOK, config)
+	R.Success(c, config)
 }
 
 // updateLLMSettings 更新当前用户的LLM设置
@@ -51,18 +49,18 @@ func (h *SettingsHandler) updateLLMSettings(c *gin.Context) {
 
 	var req auth.LLMSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
 	if err := h.llmSettingService.UpdateLLMSetting(c.Request.Context(), userID, req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
 	// 获取更新后的设置返回
 	config, _ := h.llmSettingService.GetLLMConfig(c.Request.Context(), userID)
-	c.JSON(http.StatusOK, config)
+	R.Success(c, config)
 }
 
 // deleteLLMSettings 删除当前用户的LLM设置
@@ -70,11 +68,9 @@ func (h *SettingsHandler) deleteLLMSettings(c *gin.Context) {
 	userID := GetUserID(c)
 
 	if err := h.llmSettingService.DeleteLLMSetting(c.Request.Context(), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "LLM settings deleted",
-	})
+	R.SuccessWithMessage(c, "LLM settings deleted", nil)
 }

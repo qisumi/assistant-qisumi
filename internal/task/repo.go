@@ -194,44 +194,17 @@ func (r *Repository) MarkTasksFocusToday(ctx context.Context, userID uint64, tas
 func buildTaskUpdateMap(fields UpdateTaskFields) (map[string]any, error) {
 	updates := make(map[string]any)
 
-	if fields.Title != nil {
-		updates["title"] = *fields.Title
+	setIfNotNil(updates, "title", fields.Title)
+	setIfNotNil(updates, "description", fields.Description)
+	setIfNotNil(updates, "status", fields.Status)
+	setIfNotNil(updates, "priority", fields.Priority)
+	setIfNotNil(updates, "is_focus_today", fields.IsFocusToday)
+	
+	if err := setFlexibleTimeField(updates, "due_at", fields.DueAt); err != nil {
+		return nil, err
 	}
-	if fields.Description != nil {
-		updates["description"] = *fields.Description
-	}
-	if fields.Status != nil {
-		updates["status"] = *fields.Status
-	}
-	if fields.Priority != nil {
-		updates["priority"] = *fields.Priority
-	}
-	if fields.IsFocusToday != nil {
-		updates["is_focus_today"] = *fields.IsFocusToday
-	}
-	if fields.DueAt != nil {
-		if *fields.DueAt == "" {
-			updates["due_at"] = nil
-		} else {
-			// 使用 FlexibleTime 解析多种日期格式
-			ft, err := ParseFlexibleTime(*fields.DueAt)
-			if err != nil {
-				return nil, err
-			}
-			updates["due_at"] = ft.ToTime()
-		}
-	}
-	if fields.CompletedAt != nil {
-		if *fields.CompletedAt == "" {
-			updates["completed_at"] = nil
-		} else {
-			// 解析 RFC3339 格式时间
-			t, err := ParseRFC3339(*fields.CompletedAt)
-			if err != nil {
-				return nil, err
-			}
-			updates["completed_at"] = t
-		}
+	if err := setRFC3339TimeField(updates, "completed_at", fields.CompletedAt); err != nil {
+		return nil, err
 	}
 
 	return updates, nil
@@ -240,62 +213,65 @@ func buildTaskUpdateMap(fields UpdateTaskFields) (map[string]any, error) {
 func buildStepUpdateMap(fields UpdateStepFields) (map[string]any, error) {
 	updates := make(map[string]any)
 
-	if fields.Title != nil {
-		updates["title"] = *fields.Title
+	setIfNotNil(updates, "title", fields.Title)
+	setIfNotNil(updates, "detail", fields.Detail)
+	setIfNotNil(updates, "status", fields.Status)
+	setIfNotNil(updates, "blocking_reason", fields.BlockingReason)
+	setIfNotNil(updates, "estimate_minutes", fields.EstimateMin)
+	setIfNotNil(updates, "order_index", fields.OrderIndex)
+	
+	if err := setFlexibleTimeField(updates, "planned_start", fields.PlannedStart); err != nil {
+		return nil, err
 	}
-	if fields.Detail != nil {
-		updates["detail"] = *fields.Detail
+	if err := setFlexibleTimeField(updates, "planned_end", fields.PlannedEnd); err != nil {
+		return nil, err
 	}
-	if fields.Status != nil {
-		updates["status"] = *fields.Status
-	}
-	if fields.BlockingReason != nil {
-		updates["blocking_reason"] = *fields.BlockingReason
-	}
-	if fields.EstimateMin != nil {
-		updates["estimate_minutes"] = *fields.EstimateMin
-	}
-	if fields.OrderIndex != nil {
-		updates["order_index"] = *fields.OrderIndex
-	}
-	if fields.PlannedStart != nil {
-		if *fields.PlannedStart == "" {
-			updates["planned_start"] = nil
-		} else {
-			// 使用 FlexibleTime 解析多种日期格式
-			ft, err := ParseFlexibleTime(*fields.PlannedStart)
-			if err != nil {
-				return nil, err
-			}
-			updates["planned_start"] = ft.ToTime()
-		}
-	}
-	if fields.PlannedEnd != nil {
-		if *fields.PlannedEnd == "" {
-			updates["planned_end"] = nil
-		} else {
-			// 使用 FlexibleTime 解析多种日期格式
-			ft, err := ParseFlexibleTime(*fields.PlannedEnd)
-			if err != nil {
-				return nil, err
-			}
-			updates["planned_end"] = ft.ToTime()
-		}
-	}
-	if fields.CompletedAt != nil {
-		if *fields.CompletedAt == "" {
-			updates["completed_at"] = nil
-		} else {
-			// 解析 RFC3339 格式时间
-			t, err := ParseRFC3339(*fields.CompletedAt)
-			if err != nil {
-				return nil, err
-			}
-			updates["completed_at"] = t
-		}
+	if err := setRFC3339TimeField(updates, "completed_at", fields.CompletedAt); err != nil {
+		return nil, err
 	}
 
 	return updates, nil
+}
+
+// setIfNotNil 如果值非 nil，则设置到 map 中
+func setIfNotNil[T any](m map[string]any, key string, value *T) {
+	if value != nil {
+		m[key] = *value
+	}
+}
+
+// setFlexibleTimeField 设置 FlexibleTime 字段
+func setFlexibleTimeField(m map[string]any, key string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	if *value == "" {
+		m[key] = nil
+		return nil
+	}
+	ft, err := ParseFlexibleTime(*value)
+	if err != nil {
+		return err
+	}
+	m[key] = ft.ToTime()
+	return nil
+}
+
+// setRFC3339TimeField 设置 RFC3339 时间字段
+func setRFC3339TimeField(m map[string]any, key string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	if *value == "" {
+		m[key] = nil
+		return nil
+	}
+	t, err := ParseRFC3339(*value)
+	if err != nil {
+		return err
+	}
+	m[key] = t
+	return nil
 }
 
 // DeleteTask 删除任务及其关联数据

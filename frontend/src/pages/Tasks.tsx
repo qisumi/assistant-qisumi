@@ -1,17 +1,31 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip, Select, Form, Input, DatePicker, Switch } from 'antd';
-import { PlusOutlined, FileTextOutlined, DeleteOutlined, CheckCircleOutlined, CalendarOutlined, FieldTimeOutlined, StarFilled } from '@ant-design/icons';
-
+import { 
+  List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, 
+  message as antdMessage, Tooltip, Select, Form, Input, DatePicker, Switch 
+} from 'antd';
+import { 
+  PlusOutlined, FileTextOutlined, DeleteOutlined, CheckCircleOutlined, 
+  CalendarOutlined, FieldTimeOutlined, StarFilled 
+} from '@ant-design/icons';
 import { fetchTasks, deleteTask, createTask } from '@/api/tasks';
 import type { Task } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime, isOverdue } from '@/utils/format';
+import { getStatusTag, getPriorityTag } from '@/utils/tags';
+import { confirmDelete } from '@/utils/dialog';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 type SortOption = 'createdAt' | 'updatedAt' | 'dueAt' | 'focusToday';
+
+const SORT_OPTIONS = [
+  { value: 'focusToday' as const, label: '今日重点任务' },
+  { value: 'updatedAt' as const, label: '最近更新' },
+  { value: 'createdAt' as const, label: '创建时间' },
+  { value: 'dueAt' as const, label: '预期完成时间' },
+];
 
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
@@ -89,14 +103,7 @@ const Tasks: React.FC = () => {
   });
 
   const handleDeleteTask = (taskId: number, taskTitle: string) => {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除任务「${taskTitle}」吗？此操作不可恢复。`,
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => deleteMutation.mutate(taskId),
-    });
+    confirmDelete('任务', taskTitle, () => deleteMutation.mutate(taskId));
   };
 
   const handleCreateTask = async () => {
@@ -118,36 +125,6 @@ const Tasks: React.FC = () => {
   const handleCancelCreate = () => {
     setIsCreateModalVisible(false);
     createForm.resetFields();
-  };
-
-  const getStatusTag = (status: string) => {
-    const colors: Record<string, string> = {
-      todo: 'default',
-      in_progress: 'processing',
-      done: 'success',
-      cancelled: 'error',
-    };
-    const labels: Record<string, string> = {
-      todo: '待办',
-      in_progress: '进行中',
-      done: '已完成',
-      cancelled: '已取消',
-    };
-    return <Tag color={colors[status]}>{labels[status] || status}</Tag>;
-  };
-
-  const getPriorityTag = (priority: string) => {
-    const colors: Record<string, string> = {
-      low: 'blue',
-      medium: 'orange',
-      high: 'red',
-    };
-    const labels: Record<string, string> = {
-      low: '低',
-      medium: '中',
-      high: '高',
-    };
-    return <Tag color={colors[priority]}>{labels[priority] || priority}优先级</Tag>;
   };
 
   if (isLoading) {
@@ -189,17 +166,7 @@ const Tasks: React.FC = () => {
       <div style={{ marginBottom: 16 }}>
         <Space>
           <Text>排序方式：</Text>
-          <Select
-            value={sortBy}
-            onChange={setSortBy}
-            style={{ width: 180 }}
-            options={[
-              { value: 'focusToday', label: '今日重点任务' },
-              { value: 'updatedAt', label: '最近更新' },
-              { value: 'createdAt', label: '创建时间' },
-              { value: 'dueAt', label: '预期完成时间' },
-            ]}
-          />
+          <Select value={sortBy} onChange={setSortBy} style={{ width: 180 }} options={SORT_OPTIONS} />
         </Space>
       </div>
 

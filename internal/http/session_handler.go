@@ -2,17 +2,32 @@ package http
 
 import (
 	"errors"
-	"net/http"
-	"strconv"
 
 	"assistant-qisumi/internal/agent"
 	"assistant-qisumi/internal/auth"
-	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/session"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// validateSessionOwner 验证 session 属于该用户
+func (h *SessionHandler) validateSessionOwner(c *gin.Context, sid, userID uint64) error {
+	sess, err := h.sessionRepo.GetSession(c, sid)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			R.NotFound(c, "session not found")
+			return err
+		}
+		R.InternalError(c, err.Error())
+		return err
+	}
+	if sess.UserID != userID {
+		R.Forbidden(c, "forbidden")
+		return errors.New("forbidden")
+	}
+	return nil
+}
 
 type SessionHandler struct {
 	agentSvc      *agent.Service
@@ -39,39 +54,31 @@ func (h *SessionHandler) getGlobalSession(c *gin.Context) {
 	userID := GetUserID(c)
 	sess, err := h.sessionRepo.GetGlobalSessionOrCreate(c, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"session": sess})
+	R.Success(c, gin.H{"session": sess})
 }
 
 func (h *SessionHandler) listMessages(c *gin.Context) {
 	userID := GetUserID(c)
-	sidStr := c.Param("id")
-	sid, err := strconv.ParseUint(sidStr, 10, 64)
+	sid, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
 		return
 	}
 
 	// 验证 session 属于该用户
-	sess, err := h.sessionRepo.GetSession(c, sid)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-		return
-	}
-	if sess.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+	if err := h.validateSessionOwner(c, sid, userID); err != nil {
 		return
 	}
 
 	messages, err := h.sessionRepo.ListRecentMessages(c, sid, 50)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	R.Success(c, gin.H{
 		"sessionId": sid,
 		"messages":  messages,
 	})
@@ -83,57 +90,34 @@ type PostMessageReq struct {
 
 func (h *SessionHandler) postMessage(c *gin.Context) {
 	userID := GetUserID(c)
-	sidStr := c.Param("id")
-	sid, err := strconv.ParseUint(sidStr, 10, 64)
+	sid, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
 		return
 	}
 
-	sess, err := h.sessionRepo.GetSession(c, sid)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if sess.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+	// 验证 session 存在且属于该用户
+	if err := h.validateSessionOwner(c, sid, userID); err != nil {
 		return
 	}
 
 	var req PostMessageReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
-	// 从 DB 根据 userID 获取 LLMConfig
-	llmConfig, err := h.llmSettingSvc.GetLLMConfig(c, userID)
+	cfg, err := GetLLMConfig(c, h.llmSettingSvc, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get LLM config: " + err.Error()})
-		return
-	}
-	if llmConfig == nil || llmConfig.APIKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "LLM API key not set. Please configure it in settings or contact administrator."})
 		return
 	}
 
-	// 转换为 llm.Config 类型
-	cfg := llm.Config{
-		BaseURL: llmConfig.BaseURL,
-		APIKey:  llmConfig.APIKey,
-		Model:   llmConfig.Model,
-	}
-
-	resp, err := h.agentSvc.HandleUserMessage(c, userID, sid, req.Content, cfg)
+	resp, err := h.agentSvc.HandleUserMessage(c, userID, sid, req.Content, *cfg)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "HandleUserMessage failed: " + err.Error()})
+		R.InternalError(c, "HandleUserMessage failed: "+err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+
+	R.Success(c, gin.H{
 		"sessionId":        sid,
 		"assistantMessage": resp.AssistantMessage,
 		"taskPatches":      resp.TaskPatches,
@@ -142,29 +126,21 @@ func (h *SessionHandler) postMessage(c *gin.Context) {
 
 func (h *SessionHandler) clearMessages(c *gin.Context) {
 	userID := GetUserID(c)
-	sidStr := c.Param("id")
-	sid, err := strconv.ParseUint(sidStr, 10, 64)
+	sid, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
 		return
 	}
 
 	// 验证 session 属于该用户
-	sess, err := h.sessionRepo.GetSession(c, sid)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-		return
-	}
-	if sess.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+	if err := h.validateSessionOwner(c, sid, userID); err != nil {
 		return
 	}
 
 	// 清空该 session 的所有消息
 	if err := h.sessionRepo.ClearMessages(c, sid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	R.Success(c, gin.H{"success": true})
 }

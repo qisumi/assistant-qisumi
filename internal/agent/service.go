@@ -47,17 +47,6 @@ func NewService(
 	// 初始化Chat Completions处理器
 	chatCompletionsHandler := NewChatCompletionsHandler(llmClient, toolMap)
 
-	// 确保所有使用工具的agent都使用chatCompletionsHandler
-	if _, ok := m["executor"]; ok {
-		m["executor"] = NewExecutorAgent(llmClient, chatCompletionsHandler)
-	}
-	if _, ok := m["planner"]; ok {
-		m["planner"] = NewPlannerAgent(llmClient, chatCompletionsHandler)
-	}
-	if _, ok := m["global"]; ok {
-		m["global"] = NewGlobalAgent(llmClient, chatCompletionsHandler)
-	}
-
 	return &Service{
 		router:                 router,
 		agents:                 m,
@@ -283,43 +272,41 @@ func (s *Service) applyTaskPatches(ctx context.Context, userID uint64, tx *gorm.
 
 func (s *Service) applyUpdateTaskFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID uint64, fields task.UpdateTaskFields) error {
 	repo := s.taskRepo.WithTx(tx)
-	
-	// 如果状态变为 done，自动设置 CompletedAt
-	if fields.Status != nil && *fields.Status == "done" {
-		now := time.Now().Format(time.RFC3339)
-		fields.CompletedAt = &now
-	} else if fields.Status != nil && *fields.Status != "done" {
-		// 如果状态从 done 变为其他状态，清除 CompletedAt
-		empty := ""
-		fields.CompletedAt = &empty
-	}
-	
+
+	// 自动设置/清除 CompletedAt
+	s.updateCompletedAtForTask(fields)
+
 	if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, fields); err != nil {
 		return err
 	}
 
 	// 如果状态变为 done，触发依赖处理
 	if fields.Status != nil && *fields.Status == "done" {
-		if err := s.dependencySvc.OnTaskOrStepDone(ctx, taskID, nil); err != nil {
-			return err
-		}
+		return s.dependencySvc.OnTaskOrStepDone(ctx, taskID, nil)
 	}
 	return nil
 }
 
-func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID, stepID uint64, fields task.UpdateStepFields) error {
-	repo := s.taskRepo.WithTx(tx)
-	
-	// 如果状态变为 done，自动设置 CompletedAt
-	if fields.Status != nil && *fields.Status == "done" {
+// updateCompletedAtForTask 根据状态自动设置/清除 CompletedAt
+func (s *Service) updateCompletedAtForTask(fields task.UpdateTaskFields) {
+	if fields.Status == nil {
+		return
+	}
+	if *fields.Status == "done" {
 		now := time.Now().Format(time.RFC3339)
 		fields.CompletedAt = &now
-	} else if fields.Status != nil && *fields.Status != "done" {
-		// 如果状态从 done 变为其他状态，清除 CompletedAt
+	} else {
 		empty := ""
 		fields.CompletedAt = &empty
 	}
-	
+}
+
+func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID, stepID uint64, fields task.UpdateStepFields) error {
+	repo := s.taskRepo.WithTx(tx)
+
+	// 自动设置/清除 CompletedAt
+	s.updateCompletedAtForStep(fields)
+
 	if err := repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields); err != nil {
 		return err
 	}
@@ -378,6 +365,20 @@ func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *
 		}
 	}
 	return nil
+}
+
+// updateCompletedAtForStep 根据状态自动设置/清除 CompletedAt
+func (s *Service) updateCompletedAtForStep(fields task.UpdateStepFields) {
+	if fields.Status == nil {
+		return
+	}
+	if *fields.Status == "done" {
+		now := time.Now().Format(time.RFC3339)
+		fields.CompletedAt = &now
+	} else {
+		empty := ""
+		fields.CompletedAt = &empty
+	}
 }
 
 func (s *Service) applyInsertNewSteps(ctx context.Context, _ uint64, tx *gorm.DB, taskID uint64, _ *uint64, steps []task.NewStepRecord) error {

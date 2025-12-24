@@ -2,11 +2,8 @@ package http
 
 import (
 	"errors"
-	"net/http"
-	"strconv"
 
 	"assistant-qisumi/internal/auth"
-	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
 
@@ -49,42 +46,29 @@ func (h *TaskHandler) createFromText(c *gin.Context) {
 	userID := GetUserID(c)
 	var req CreateFromTextReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
-	// 从 DB 根据 userID 查 LLMConfig
-	llmConfig, err := h.llmSettingSvc.GetLLMConfig(c, userID)
+	cfg, err := GetLLMConfig(c, h.llmSettingSvc, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get LLM config"})
-		return
-	}
-	if llmConfig == nil || llmConfig.APIKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "LLM API key not set. Please configure it in settings or contact administrator."})
 		return
 	}
 
-	// 转换为 llm.Config 类型
-	cfg := llm.Config{
-		BaseURL: llmConfig.BaseURL,
-		APIKey:  llmConfig.APIKey,
-		Model:   llmConfig.Model,
-	}
-
-	t, err := h.taskSvc.CreateFromText(c, userID, req.RawText, cfg)
+	t, err := h.taskSvc.CreateFromText(c, userID, req.RawText, *cfg)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
 	// 获取或创建会话
 	sess, err := h.sessionRepo.GetTaskSessionOrCreate(c, userID, t.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get or create session"})
+		R.InternalError(c, "failed to get or create session")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	R.Success(c, gin.H{
 		"task":    t,
 		"session": sess,
 	})
@@ -95,10 +79,10 @@ func (h *TaskHandler) listTasks(c *gin.Context) {
 	userID := GetUserID(c)
 	tasks, err := h.taskSvc.ListTasks(c, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	R.Success(c, gin.H{
 		"tasks": tasks,
 		"total": len(tasks),
 	})
@@ -109,10 +93,10 @@ func (h *TaskHandler) listCompletedTasks(c *gin.Context) {
 	userID := GetUserID(c)
 	tasks, err := h.taskSvc.ListCompletedTasks(c, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	R.Success(c, gin.H{
 		"tasks": tasks,
 		"total": len(tasks),
 	})
@@ -121,27 +105,25 @@ func (h *TaskHandler) listCompletedTasks(c *gin.Context) {
 // getTask 获取任务详情
 func (h *TaskHandler) getTask(c *gin.Context) {
 	userID := GetUserID(c)
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
 	t, err := h.taskSvc.GetTask(c, userID, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
 
 	// 获取或创建会话
 	sess, err := h.sessionRepo.GetTaskSessionOrCreate(c, userID, t.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get or create session"})
+		R.InternalError(c, "failed to get or create session")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	R.Success(c, gin.H{
 		"task":    t,
 		"session": sess,
 	})
@@ -150,24 +132,22 @@ func (h *TaskHandler) getTask(c *gin.Context) {
 // patchTask 更新任务
 func (h *TaskHandler) patchTask(c *gin.Context) {
 	userID := GetUserID(c)
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
 	var fields task.UpdateTaskFields
 	if err := c.ShouldBindJSON(&fields); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
 	if err := h.taskSvc.UpdateTask(c, userID, id, fields); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "task updated"})
+	R.SuccessWithMessage(c, "task updated", nil)
 }
 
 // createTask 创建任务
@@ -175,123 +155,111 @@ func (h *TaskHandler) createTask(c *gin.Context) {
 	userID := GetUserID(c)
 	var t task.Task
 	if err := c.ShouldBindJSON(&t); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 	t.UserID = userID
 
 	if err := h.taskSvc.CreateTask(c, &t); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"task": t})
+	R.Success(c, gin.H{"task": t})
 }
 
 // deleteTask 删除任务
 func (h *TaskHandler) deleteTask(c *gin.Context) {
 	userID := GetUserID(c)
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
 	if err := h.taskSvc.DeleteTask(c, userID, id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+			R.NotFound(c, "task not found")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			R.InternalError(c, err.Error())
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "task deleted successfully"})
+	R.SuccessWithMessage(c, "task deleted successfully", nil)
 }
 
 // patchStep 更新步骤
 func (h *TaskHandler) patchStep(c *gin.Context) {
 	userID := GetUserID(c)
-	taskIDStr := c.Param("id")
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	taskID, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
-	stepIDStr := c.Param("stepId")
-	stepID, err := strconv.ParseUint(stepIDStr, 10, 64)
+	stepID, err := ParseUint64Param(c, "stepId")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid step id"})
 		return
 	}
 
 	var fields task.UpdateStepFields
 	if err := c.ShouldBindJSON(&fields); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
 	if err := h.taskSvc.UpdateStep(c, userID, taskID, stepID, fields); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		R.InternalError(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "step updated"})
+	R.SuccessWithMessage(c, "step updated", nil)
 }
 
 // addStep 添加步骤
 func (h *TaskHandler) addStep(c *gin.Context) {
 	userID := GetUserID(c)
-	taskIDStr := c.Param("id")
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	taskID, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
 	var step task.TaskStep
 	if err := c.ShouldBindJSON(&step); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 
 	if err := h.taskSvc.AddStep(c, userID, taskID, &step); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+			R.NotFound(c, "task not found")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			R.InternalError(c, err.Error())
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"step": step})
+	R.Success(c, gin.H{"step": step})
 }
 
 // deleteStep 删除步骤
 func (h *TaskHandler) deleteStep(c *gin.Context) {
 	userID := GetUserID(c)
-	taskIDStr := c.Param("id")
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 64)
+	taskID, err := ParseUint64Param(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task id"})
 		return
 	}
 
-	stepIDStr := c.Param("stepId")
-	stepID, err := strconv.ParseUint(stepIDStr, 10, 64)
+	stepID, err := ParseUint64Param(c, "stepId")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid step id"})
 		return
 	}
 
 	if err := h.taskSvc.DeleteStep(c, userID, taskID, stepID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "step not found"})
+			R.NotFound(c, "step not found")
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			R.InternalError(c, err.Error())
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "step deleted successfully"})
+	R.SuccessWithMessage(c, "step deleted successfully", nil)
 }

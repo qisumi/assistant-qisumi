@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Space, Spin, Typography, message as antdMessage, Modal } from 'antd';
+import { Card, Button, Space, Spin, Typography, message as antdMessage } from 'antd';
 import { BulbOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { getOrCreateGlobalSession, fetchSessionMessages, sendSessionMessage, clearSessionMessages } from '@/api/sessions';
 import type { Message } from '@/types';
+import { confirmAction } from '@/utils/dialog';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -59,15 +60,11 @@ const GlobalAssistant: React.FC = () => {
   });
 
   const handleStartNewConversation = () => {
-    Modal.confirm({
-      title: '确认开启新对话',
-      content: '这将清空当前小奇（全局）的所有历史对话记录，确定要继续吗？',
-      okText: '确定',
-      cancelText: '取消',
-      onOk: () => {
-        clearMutation.mutate();
-      },
-    });
+    confirmAction(
+      '确认开启新对话',
+      '这将清空当前小奇（全局）的所有历史对话记录，确定要继续吗？',
+      () => clearMutation.mutate()
+    );
   };
 
   const handleQuickAskToday = async () => {

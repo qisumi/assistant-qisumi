@@ -1,40 +1,29 @@
 import apiClient from './client';
-import type {
-  Session,
-  SessionMessagesResponse,
-  SendMessageResponse,
-} from '@/types';
+import type { Session, SessionMessagesResponse, SendMessageResponse } from '@/types';
 
-// 获取消息列表
-export async function fetchSessionMessages(
-  sessionId: number | string,
-): Promise<SessionMessagesResponse> {
-  const { data } = await apiClient.get<SessionMessagesResponse>(`/sessions/${sessionId}/messages`);
+export const fetchSessionMessages = async (
+  sessionId: number | string
+): Promise<SessionMessagesResponse> => {
+  const { data } = await apiClient.get(`/sessions/${sessionId}/messages`);
   return data;
-}
+};
 
-// 发送消息
-export async function sendSessionMessage(
+export const sendSessionMessage = async (
   sessionId: number | string,
-  content: string,
-): Promise<SendMessageResponse> {
-  const { data } = await apiClient.post<SendMessageResponse>(
-    `/sessions/${sessionId}/messages`,
-    { content },
-  );
+  content: string
+): Promise<SendMessageResponse> => {
+  const { data } = await apiClient.post(`/sessions/${sessionId}/messages`, { content });
   return data;
-}
+};
 
-// 清空会话的所有消息
-export async function clearSessionMessages(
-  sessionId: number | string,
-): Promise<{ success: boolean }> {
-  const { data } = await apiClient.delete<{ success: boolean }>(`/sessions/${sessionId}/messages`);
+export const clearSessionMessages = async (
+  sessionId: number | string
+): Promise<{ success: boolean }> => {
+  const { data } = await apiClient.delete(`/sessions/${sessionId}/messages`);
   return data;
-}
+};
 
-// 获取或创建当前用户的全局会话
-export async function getOrCreateGlobalSession(): Promise<Session> {
+export const getOrCreateGlobalSession = async (): Promise<Session> => {
   const { data } = await apiClient.get<{ session: Session }>('/sessions/global');
   return data.session;
-}
+};

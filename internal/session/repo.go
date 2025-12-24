@@ -43,11 +43,15 @@ func (r *Repository) ListRecentMessages(ctx context.Context, sessionID uint64, l
 	}
 
 	// 反转顺序，使最早的消息在前面
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
-	}
-
+	reverseSlice(messages)
 	return messages, nil
+}
+
+// reverseSlice 反转切片
+func reverseSlice[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }
 
 // GetTaskSessionOrCreate: 针对某个 user + task 找到一个 task session，没有就创建。

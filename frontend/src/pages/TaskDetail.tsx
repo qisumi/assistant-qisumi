@@ -2,28 +2,15 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Card,
-  Tag,
-  Button,
-  Space,
-  Typography,
-  Spin,
-  Divider,
-  List,
-  Checkbox,
-  Breadcrumb,
-  Modal,
-  message as antdMessage,
-  Tooltip,
-  Descriptions,
-  Form,
-  Input,
-  InputNumber,
-  DatePicker
+  Card, Tag, Button, Space, Typography, Spin, Divider, List, Checkbox, 
+  Breadcrumb, Modal, message as antdMessage, Tooltip, Descriptions, 
+  Form, Input, InputNumber, DatePicker
 } from 'antd';
-import { ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined } from '@ant-design/icons';
+import { 
+  ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, 
+  CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined 
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
-
 import { fetchTaskDetail, deleteTask, addTaskStep, deleteTaskStep, updateTask } from '@/api/tasks';
 import { fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
 import { ChatWindow } from '@/components/chat/ChatWindow';
@@ -31,6 +18,8 @@ import { TaskEditForm } from '@/components/tasks/TaskEditForm';
 import { StepEditableField } from '@/components/tasks/StepEditableField';
 import type { TaskStep } from '@/types';
 import { formatDate, formatDateTime, formatRelativeTime, formatTimeRange, isOverdue } from '@/utils/format';
+import { getStatusTag, getPriorityTag } from '@/utils/tags';
+import { confirmDelete } from '@/utils/dialog';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -125,14 +114,7 @@ const TaskDetail: React.FC = () => {
   });
 
   const handleDeleteTask = () => {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除任务「${task.title}」吗？此操作不可恢复。`,
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => deleteMutation.mutate(task.id),
-    });
+    confirmDelete('任务', task.title, () => deleteMutation.mutate(task.id));
   };
 
   const handleAddStep = async () => {
@@ -152,14 +134,7 @@ const TaskDetail: React.FC = () => {
   };
 
   const handleDeleteStep = (stepId: number, stepTitle: string) => {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定要删除步骤「${stepTitle}」吗？此操作不可恢复。`,
-      okText: '删除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: () => deleteStepMutation.mutate({ taskId: id!, stepId }),
-    });
+    confirmDelete('步骤', stepTitle, () => deleteStepMutation.mutate({ taskId: id!, stepId }));
   };
 
   const handleUpdateDueAt = async (date: dayjs.Dayjs | null) => {
@@ -223,31 +198,6 @@ const TaskDetail: React.FC = () => {
 
   const { task } = data;
   const messages = messagesData?.messages ?? data.messages ?? [];
-
-  const statusLabels: Record<string, string> = {
-    todo: '待办',
-    in_progress: '进行中',
-    done: '已完成',
-    cancelled: '已取消',
-  };
-
-  const priorityLabels: Record<string, string> = {
-    low: '低',
-    medium: '中',
-    high: '高',
-  };
-
-
-  const getStatusTag = (status: string) => {
-    const colors: Record<string, string> = {
-      todo: 'default',
-      in_progress: 'processing',
-      done: 'success',
-      cancelled: 'error',
-    };
-    return <Tag color={colors[status]}>{statusLabels[status] || status}</Tag>;
-  };
-
 
   return (
     <div style={{ padding: '12px 24px' }}>
@@ -324,9 +274,7 @@ const TaskDetail: React.FC = () => {
                     )}
                     <Space style={{ marginTop: 8 }}>
                       {getStatusTag(task.status)}
-                      <Tag color={task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'orange' : 'blue'}>
-                        {(priorityLabels[task.priority] || task.priority)}优先级
-                      </Tag>
+                      {getPriorityTag(task.priority)}
                       {task.isFocusToday && <Tag color="gold">今日聚焦</Tag>}
                     </Space>
                   </div>

@@ -156,14 +156,6 @@ func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*Ch
 	return chatResp, nil
 }
 
-// truncateString 截断字符串用于日志
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
-
 func newOpenAIClient(cfg Config, httpClient *http.Client) openai.Client {
 	opts := []option.RequestOption{}
 	if cfg.APIKey != "" {

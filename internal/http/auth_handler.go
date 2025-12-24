@@ -1,8 +1,6 @@
 package http
 
 import (
-	"net/http"
-
 	"assistant-qisumi/internal/auth"
 
 	"github.com/gin-gonic/gin"
@@ -29,14 +27,14 @@ type RegisterReq struct {
 func (h *AuthHandler) register(c *gin.Context) {
 	var req RegisterReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 	if err := h.svc.Register(c, req.Email, req.Password); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
-	c.Status(http.StatusCreated)
+	R.Created(c, nil)
 }
 
 type LoginReq struct {
@@ -47,13 +45,13 @@ type LoginReq struct {
 func (h *AuthHandler) login(c *gin.Context) {
 	var req LoginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		R.BadRequest(c, err.Error())
 		return
 	}
 	token, err := h.svc.Login(c, req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		R.Unauthorized(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	R.Success(c, gin.H{"token": token})
 }
