@@ -14,6 +14,7 @@ type Task struct {
 	CreatedFrom  string        `gorm:"column:created_from;type:text" json:"createdFrom,omitempty"`
 	CreatedAt    time.Time     `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt    time.Time     `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	CompletedAt  *time.Time    `gorm:"column:completed_at" json:"completedAt,omitempty"`
 
 	Steps []TaskStep `gorm:"foreignKey:TaskID" json:"steps,omitempty"`
 }
@@ -33,6 +34,7 @@ type TaskStep struct {
 	PlannedEnd     *FlexibleTime `gorm:"column:planned_end" json:"plannedEnd,omitempty"`
 	CreatedAt      time.Time     `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt      time.Time     `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	CompletedAt    *time.Time    `gorm:"column:completed_at" json:"completedAt,omitempty"`
 }
 
 func (TaskStep) TableName() string { return "task_steps" }
@@ -55,12 +57,13 @@ func (TaskDependency) TableName() string { return "task_dependencies" }
 // --- Patch/Update related structs ---
 
 type UpdateTaskFields struct {
-	Title        *string `json:"title,omitempty"`
-	Description  *string `json:"description,omitempty"`
-	Status       *string `json:"status,omitempty"`   // "todo" | "in_progress" | "done" | "cancelled"
-	Priority     *string `json:"priority,omitempty"` // "low" | "medium" | "high"
-	IsFocusToday *bool   `json:"isFocusToday,omitempty"`
-	DueAt        *string `json:"dueAt,omitempty"` // RFC3339
+	Title        *string  `json:"title,omitempty"`
+	Description  *string  `json:"description,omitempty"`
+	Status       *string  `json:"status,omitempty"`   // "todo" | "in_progress" | "done" | "cancelled"
+	Priority     *string  `json:"priority,omitempty"` // "low" | "medium" | "high"
+	IsFocusToday *bool    `json:"isFocusToday,omitempty"`
+	DueAt        *string  `json:"dueAt,omitempty"`        // RFC3339
+	CompletedAt  *string  `json:"completedAt,omitempty"` // RFC3339
 }
 
 type UpdateStepFields struct {
@@ -72,6 +75,7 @@ type UpdateStepFields struct {
 	OrderIndex     *int    `json:"orderIndex,omitempty"`
 	PlannedStart   *string `json:"plannedStart,omitempty"` // RFC3339
 	PlannedEnd     *string `json:"plannedEnd,omitempty"`   // RFC3339
+	CompletedAt    *string `json:"completedAt,omitempty"` // RFC3339
 }
 
 type NewStepRecord struct {

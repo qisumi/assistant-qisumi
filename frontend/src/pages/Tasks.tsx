@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage } from 'antd';
-import { PlusOutlined, FileTextOutlined, ClockCircleOutlined, DeleteOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip } from 'antd';
+import { PlusOutlined, FileTextOutlined, ClockCircleOutlined, DeleteOutlined, CheckCircleOutlined, CalendarOutlined, FieldTimeOutlined } from '@ant-design/icons';
 
 import { fetchTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';
+import { formatDate, formatDateTime, formatRelativeTime, isOverdue } from '@/utils/format';
 
 const { Title, Text } = Typography;
 
@@ -139,18 +139,40 @@ const Tasks: React.FC = () => {
                   <Text type="secondary" ellipsis={{ tooltip: task.description }}>
                     {task.description || '无描述'}
                   </Text>
+                  
+                  {/* 时间信息 */}
+                  <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                    <Space size={8} wrap>
+                      {task.createdAt && (
+                        <Tooltip title={`创建于 ${formatDateTime(task.createdAt)}`}>
+                          <Space size={4}>
+                            <FieldTimeOutlined style={{ fontSize: 12 }} />
+                            <Text type="secondary">创建: {formatRelativeTime(task.createdAt)}</Text>
+                          </Space>
+                        </Tooltip>
+                      )}
+                      {task.updatedAt && task.updatedAt !== task.createdAt && (
+                        <Tooltip title={`更新于 ${formatDateTime(task.updatedAt)}`}>
+                          <Text type="secondary">更新: {formatRelativeTime(task.updatedAt)}</Text>
+                        </Tooltip>
+                      )}
+                      {task.dueAt && (
+                        <Tooltip title={`截止于 ${formatDateTime(task.dueAt)}`}>
+                          <Space size={4}>
+                            <CalendarOutlined style={{ fontSize: 12, color: isOverdue(task.dueAt) ? '#ff4d4f' : '#8c8c8c' }} />
+                            <Text type="secondary" style={{ color: isOverdue(task.dueAt) ? '#ff4d4f' : undefined }}>
+                              截止: {formatDate(task.dueAt)}
+                            </Text>
+                          </Space>
+                        </Tooltip>
+                      )}
+                    </Space>
+                  </div>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                     <Space>
                       {getPriorityTag(task.priority)}
                     </Space>
-                    {task.dueAt && (
-                      <Space size={4}>
-                        <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {dayjs(task.dueAt).format('YYYY-MM-DD')}
-                        </Text>
-                      </Space>
-                    )}
                   </div>
                 </Space>
               </Card>

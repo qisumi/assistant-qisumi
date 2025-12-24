@@ -200,6 +200,18 @@ func buildTaskUpdateMap(fields UpdateTaskFields) (map[string]any, error) {
 			updates["due_at"] = ft.ToTime()
 		}
 	}
+	if fields.CompletedAt != nil {
+		if *fields.CompletedAt == "" {
+			updates["completed_at"] = nil
+		} else {
+			// 解析 RFC3339 格式时间
+			t, err := ParseRFC3339(*fields.CompletedAt)
+			if err != nil {
+				return nil, err
+			}
+			updates["completed_at"] = t
+		}
+	}
 
 	return updates, nil
 }
@@ -247,6 +259,18 @@ func buildStepUpdateMap(fields UpdateStepFields) (map[string]any, error) {
 				return nil, err
 			}
 			updates["planned_end"] = ft.ToTime()
+		}
+	}
+	if fields.CompletedAt != nil {
+		if *fields.CompletedAt == "" {
+			updates["completed_at"] = nil
+		} else {
+			// 解析 RFC3339 格式时间
+			t, err := ParseRFC3339(*fields.CompletedAt)
+			if err != nil {
+				return nil, err
+			}
+			updates["completed_at"] = t
 		}
 	}
 

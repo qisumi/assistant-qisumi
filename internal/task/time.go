@@ -111,3 +111,15 @@ func ParseFlexibleTime(s string) (*FlexibleTime, error) {
 	}
 	return &ft, nil
 }
+
+// ParseRFC3339 从字符串解析 RFC3339 格式的时间
+func ParseRFC3339(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("无法解析 RFC3339 时间: %w", err)
+	}
+	return t, nil
+}

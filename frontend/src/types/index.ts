@@ -37,6 +37,7 @@ export interface TaskStep {
   plannedEnd?: string | null;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
 }
 
 export interface Task {
@@ -49,6 +50,7 @@ export interface Task {
   dueAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
   steps?: TaskStep[];
 }
 

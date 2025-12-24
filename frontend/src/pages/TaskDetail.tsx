@@ -13,15 +13,17 @@ import {
   Checkbox,
   Breadcrumb,
   Modal,
-  message as antdMessage
+  message as antdMessage,
+  Tooltip,
+  Descriptions
 } from 'antd';
-import { ArrowLeftOutlined, ClockCircleOutlined, CalendarOutlined, DeleteOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
+import { ArrowLeftOutlined, ClockCircleOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 import { fetchTaskDetail, deleteTask } from '@/api/tasks';
 import { fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import type { TaskStep } from '@/types';
+import { formatDate, formatDateTime, formatRelativeTime, formatTimeRange, isOverdue } from '@/utils/format';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -187,14 +189,36 @@ const TaskDetail: React.FC = () => {
               <Paragraph type="secondary">
                 {task.description || '暂无描述'}
               </Paragraph>
-              <Space size="large">
+              
+              {/* 时间信息 */}
+              <Descriptions size="small" column={2} style={{ marginTop: 16 }}>
+                <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />创建时间</Space>}>
+                  <Tooltip title={formatDateTime(task.createdAt)}>
+                    {formatRelativeTime(task.createdAt)}
+                  </Tooltip>
+                </Descriptions.Item>
+                <Descriptions.Item label={<Space size={4}><FieldTimeOutlined />更新时间</Space>}>
+                  <Tooltip title={formatDateTime(task.updatedAt)}>
+                    {formatRelativeTime(task.updatedAt)}
+                  </Tooltip>
+                </Descriptions.Item>
                 {task.dueAt && (
-                  <Space>
-                    <CalendarOutlined />
-                    <Text>截止日期：{dayjs(task.dueAt).format('YYYY-MM-DD HH:mm')}</Text>
-                  </Space>
+                  <Descriptions.Item label={<Space size={4}><CalendarOutlined />截止日期</Space>}>
+                    <Tooltip title={formatDateTime(task.dueAt)}>
+                      <Text style={{ color: isOverdue(task.dueAt) ? '#ff4d4f' : undefined }}>
+                        {formatDate(task.dueAt)}
+                      </Text>
+                    </Tooltip>
+                  </Descriptions.Item>
                 )}
-              </Space>
+                {task.completedAt && (
+                  <Descriptions.Item label={<Space size={4}><CheckCircleOutlined />完成时间</Space>}>
+                    <Tooltip title={formatDateTime(task.completedAt)}>
+                      {formatRelativeTime(task.completedAt)}
+                    </Tooltip>
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
             </div>
 
             <div>
@@ -217,14 +241,34 @@ const TaskDetail: React.FC = () => {
                             {step.detail}
                           </Paragraph>
                         )}
-                        {step.estimateMinutes && (
-                          <Space size={4}>
-                            <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              预计 {step.estimateMinutes} 分钟
-                            </Text>
-                          </Space>
-                        )}
+                        {/* 步骤时间信息 */}
+                        <Space size={12} style={{ marginTop: 4 }}>
+                          {step.estimateMinutes && (
+                            <Space size={4}>
+                              <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                预计 {step.estimateMinutes} 分钟
+                              </Text>
+                            </Space>
+                          )}
+                          {step.plannedStart && step.plannedEnd && (
+                            <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                计划: {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
+                              </Text>
+                            </Tooltip>
+                          )}
+                          {step.completedAt && (
+                            <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
+                              <Space size={4}>
+                                <CheckCircleOutlined style={{ fontSize: 12, color: '#52c41a' }} />
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {formatRelativeTime(step.completedAt)}
+                                </Text>
+                              </Space>
+                            </Tooltip>
+                          )}
+                        </Space>
                       </div>
                     </div>
                   </List.Item>

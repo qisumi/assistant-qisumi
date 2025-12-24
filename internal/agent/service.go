@@ -283,6 +283,17 @@ func (s *Service) applyTaskPatches(ctx context.Context, userID uint64, tx *gorm.
 
 func (s *Service) applyUpdateTaskFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID uint64, fields task.UpdateTaskFields) error {
 	repo := s.taskRepo.WithTx(tx)
+	
+	// 如果状态变为 done，自动设置 CompletedAt
+	if fields.Status != nil && *fields.Status == "done" {
+		now := time.Now().Format(time.RFC3339)
+		fields.CompletedAt = &now
+	} else if fields.Status != nil && *fields.Status != "done" {
+		// 如果状态从 done 变为其他状态，清除 CompletedAt
+		empty := ""
+		fields.CompletedAt = &empty
+	}
+	
 	if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, fields); err != nil {
 		return err
 	}
@@ -298,8 +309,26 @@ func (s *Service) applyUpdateTaskFields(ctx context.Context, userID uint64, tx *
 
 func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID, stepID uint64, fields task.UpdateStepFields) error {
 	repo := s.taskRepo.WithTx(tx)
+	
+	// 如果状态变为 done，自动设置 CompletedAt
+	if fields.Status != nil && *fields.Status == "done" {
+		now := time.Now().Format(time.RFC3339)
+		fields.CompletedAt = &now
+	} else if fields.Status != nil && *fields.Status != "done" {
+		// 如果状态从 done 变为其他状态，清除 CompletedAt
+		empty := ""
+		fields.CompletedAt = &empty
+	}
+	
 	if err := repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields); err != nil {
 		return err
+	}
+
+	// 如果步骤状态发生变化，更新任务的 UpdatedAt
+	if fields.Status != nil {
+		if err := tx.Table("tasks").Where("id = ? AND user_id = ?", taskID, userID).Update("updated_at", time.Now()).Error; err != nil {
+			return err
+		}
 	}
 
 	// 如果状态变为 done，触发依赖处理
@@ -330,8 +359,10 @@ func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *
 			if allStepsDone {
 				// 所有步骤完成，任务状态设为 done
 				status := "done"
+				now := time.Now().Format(time.RFC3339)
 				if err := repo.ApplyUpdateTaskFields(ctx, userID, taskID, task.UpdateTaskFields{
-					Status: &status,
+					Status:      &status,
+					CompletedAt: &now,
 				}); err != nil {
 					return err
 				}
