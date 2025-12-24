@@ -47,6 +47,7 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
+  isFocusToday?: boolean;
   dueAt?: string | null;
   createdAt: string;
   updatedAt: string;

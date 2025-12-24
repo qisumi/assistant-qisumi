@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip } from 'antd';
-import { PlusOutlined, FileTextOutlined, DeleteOutlined, CheckCircleOutlined, CalendarOutlined, FieldTimeOutlined } from '@ant-design/icons';
+import { List, Card, Tag, Button, Space, Typography, Spin, Empty, Modal, message as antdMessage, Tooltip, Select } from 'antd';
+import { PlusOutlined, FileTextOutlined, DeleteOutlined, CheckCircleOutlined, CalendarOutlined, FieldTimeOutlined, StarFilled } from '@ant-design/icons';
 
 import { fetchTasks, deleteTask } from '@/api/tasks';
 import type { Task } from '@/types';
@@ -10,14 +10,54 @@ import { formatDate, formatDateTime, formatRelativeTime, isOverdue } from '@/uti
 
 const { Title, Text } = Typography;
 
+type SortOption = 'createdAt' | 'updatedAt' | 'dueAt' | 'focusToday';
+
 const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
 
   const { data: tasks, isLoading, isError } = useQuery({
     queryKey: ['tasks'],
     queryFn: fetchTasks,
   });
+
+  // 排序任务
+  const sortedTasks = useMemo(() => {
+    if (!tasks) return [];
+    
+    const tasksCopy = [...tasks];
+    
+    switch (sortBy) {
+      case 'focusToday':
+        // 今日重点任务排在前面，然后按更新时间倒序
+        return tasksCopy.sort((a, b) => {
+          if (a.isFocusToday && !b.isFocusToday) return -1;
+          if (!a.isFocusToday && b.isFocusToday) return 1;
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+      case 'createdAt':
+        // 创建时间倒序（最新的在前）
+        return tasksCopy.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      case 'updatedAt':
+        // 更新时间倒序（最近更新的在前）
+        return tasksCopy.sort((a, b) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+      case 'dueAt':
+        // 截止时间升序（最早截止的在前），没有截止时间的排在后面
+        return tasksCopy.sort((a, b) => {
+          if (!a.dueAt && !b.dueAt) return 0;
+          if (!a.dueAt) return 1;
+          if (!b.dueAt) return -1;
+          return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+        });
+      default:
+        return tasksCopy;
+    }
+  }, [tasks, sortBy]);
 
   const deleteMutation = useMutation({
     mutationFn: deleteTask,
@@ -106,19 +146,42 @@ const Tasks: React.FC = () => {
         </Space>
       </div>
 
+      {/* 排序选择器 */}
+      <div style={{ marginBottom: 16 }}>
+        <Space>
+          <Text>排序方式：</Text>
+          <Select
+            value={sortBy}
+            onChange={setSortBy}
+            style={{ width: 180 }}
+            options={[
+              { value: 'focusToday', label: '今日重点任务' },
+              { value: 'updatedAt', label: '最近更新' },
+              { value: 'createdAt', label: '创建时间' },
+              { value: 'dueAt', label: '预期完成时间' },
+            ]}
+          />
+        </Space>
+      </div>
+
       {isError ? (
         <Card>
           <Text type="danger">加载任务失败，请稍后重试</Text>
         </Card>
-      ) : tasks && tasks.length > 0 ? (
+      ) : sortedTasks && sortedTasks.length > 0 ? (
         <List
           grid={{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 3, xxl: 3 }}
-          dataSource={tasks}
+          dataSource={sortedTasks}
           renderItem={(task: Task) => (
             <List.Item>
               <Card
                 hoverable
-                title={task.title}
+                title={
+                  <Space>
+                    {task.isFocusToday && <StarFilled style={{ color: '#faad14' }} />}
+                    <span>{task.title}</span>
+                  </Space>
+                }
                 extra={
                   <Space>
                     {getStatusTag(task.status)}
@@ -134,6 +197,10 @@ const Tasks: React.FC = () => {
                   </Space>
                 }
                 onClick={() => navigate(`/tasks/${task.id}`)}
+                style={{
+                  borderColor: task.isFocusToday ? '#faad14' : undefined,
+                  borderWidth: task.isFocusToday ? 2 : undefined,
+                }}
               >
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Text type="secondary" ellipsis={{ tooltip: task.description }}>
@@ -172,6 +239,11 @@ const Tasks: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                     <Space>
                       {getPriorityTag(task.priority)}
+                      {task.isFocusToday && (
+                        <Tag icon={<StarFilled />} color="gold">
+                          今日重点
+                        </Tag>
+                      )}
                     </Space>
                   </div>
                 </Space>
