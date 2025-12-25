@@ -6,7 +6,7 @@ import {
   Select, Form, Input, DatePicker, Switch, Row, Col
 } from 'antd';
 import {
-  PlusOutlined, FileTextOutlined, CheckCircleOutlined
+  PlusOutlined, FileTextOutlined
 } from '@ant-design/icons';
 import { fetchTasks, createTask } from '@/api/tasks';
 import type { Task } from '@/types';
@@ -120,12 +120,6 @@ const Tasks: React.FC = () => {
         title="任务列表"
         extra={
           <Space wrap>
-            <Button
-              icon={<CheckCircleOutlined />}
-              onClick={() => navigate('/completed-tasks')}
-            >
-              已完成任务
-            </Button>
             <Button
               icon={<FileTextOutlined />}
               onClick={() => navigate('/create-from-text')}

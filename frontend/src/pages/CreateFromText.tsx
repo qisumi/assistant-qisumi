@@ -129,28 +129,34 @@ const CreateFromText: React.FC = () => {
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0 }}>
-            <Space>
-              <Button
-                icon={<ClearOutlined />}
-                onClick={handleClear}
-                disabled={createMutation.isPending}
-              >
-                清空
-              </Button>
-              <Button
-                type="default"
-                icon={<FileTextOutlined />}
-                onClick={handleUseExample}
-                disabled={createMutation.isPending}
-              >
-                使用示例
-              </Button>
-              <div style={{ flex: 1 }} />
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              {/* 第一行：清空和使用示例按钮 */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button
+                  icon={<ClearOutlined />}
+                  onClick={handleClear}
+                  disabled={createMutation.isPending}
+                  style={{ flex: 1 }}
+                >
+                  清空
+                </Button>
+                <Button
+                  type="default"
+                  icon={<FileTextOutlined />}
+                  onClick={handleUseExample}
+                  disabled={createMutation.isPending}
+                  style={{ flex: 1 }}
+                >
+                  使用示例
+                </Button>
+              </div>
+              {/* 第二行：生成任务按钮 */}
               <Button
                 type="primary"
                 htmlType="submit"
                 loading={createMutation.isPending}
                 icon={<ThunderboltOutlined />}
+                style={{ width: '100%' }}
               >
                 生成任务
               </Button>
