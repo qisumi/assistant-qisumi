@@ -27,6 +27,7 @@ type LLMConfig struct {
 	APIBaseURL      string
 	ThinkingType    string // disabled, enabled, auto
 	ReasoningEffort string // low, medium, high, minimal
+	EnableThinking  bool   // true/false, 用于某些 API 提供商
 	AssistantName   string // 助手名称
 }
 
@@ -75,6 +76,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	expireHour, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
+	enableThinking := getEnv("LLM_ENABLE_THINKING", "false") == "true"
 
 	// 默认数据库文件路径为可执行文件所在目录
 	defaultDBPath := filepath.Join(execDir, "assistant.db")
@@ -106,6 +108,7 @@ func LoadConfig() (*Config, error) {
 			APIBaseURL:      getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
 			ThinkingType:    getEnv("LLM_THINKING_TYPE", "auto"),
 			ReasoningEffort: getEnv("LLM_REASONING_EFFORT", "medium"),
+			EnableThinking:  enableThinking,
 			AssistantName:   getEnv("ASSISTANT_NAME", "小奇"),
 		},
 		Log: LogConfig{

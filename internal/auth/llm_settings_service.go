@@ -24,6 +24,7 @@ type LLMConfig struct {
 	Model            string `json:"model"`
 	ThinkingType     string `json:"thinking_type"`      // disabled, enabled, auto
 	ReasoningEffort  string `json:"reasoning_effort"`   // low, medium, high, minimal
+	EnableThinking   bool   `json:"enable_thinking"`    // true/false
 	AssistantName    string `json:"assistant_name"`     // 助手名称
 	HasAPIKey        bool   `json:"has_api_key"`
 	IsDefault        bool   `json:"is_default"`
@@ -36,6 +37,7 @@ type LLMSettingRequest struct {
 	Model           string `json:"model" binding:"required"`
 	ThinkingType    string `json:"thinking_type"`     // disabled, enabled, auto
 	ReasoningEffort string `json:"reasoning_effort"`  // low, medium, high, minimal
+	EnableThinking  bool   `json:"enable_thinking"`   // true/false
 	AssistantName   string `json:"assistant_name"`    // 助手名称
 }
 
@@ -123,6 +125,7 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 		Model:           setting.Model,
 		ThinkingType:    setting.ThinkingType,
 		ReasoningEffort: setting.ReasoningEffort,
+		EnableThinking:  setting.EnableThinking,
 		AssistantName:   setting.AssistantName,
 		HasAPIKey:       true,
 		IsDefault:       false,
@@ -157,7 +160,8 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 			Model:           req.Model,
 			ThinkingType:    req.ThinkingType,
 			ReasoningEffort: req.ReasoningEffort,
-			AssistantName:   req.AssistantName,
+			EnableThinking:  req.EnableThinking,
+			AssistantName:   s.defaultConfig.AssistantName,
 		}
 		return s.repo.Create(ctx, setting)
 	}
@@ -167,7 +171,8 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 	existingSetting.Model = req.Model
 	existingSetting.ThinkingType = req.ThinkingType
 	existingSetting.ReasoningEffort = req.ReasoningEffort
-	existingSetting.AssistantName = req.AssistantName
+	existingSetting.EnableThinking = req.EnableThinking
+	// AssistantName 不再允许用户修改，保留原有值或使用默认值
 
 	// 仅在提供了新 API Key 时才更新
 	if req.APIKey != "" {

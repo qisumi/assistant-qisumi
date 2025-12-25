@@ -15,9 +15,12 @@ import (
 )
 
 type Config struct {
-	BaseURL string
-	APIKey  string
-	Model   string
+	BaseURL         string
+	APIKey          string
+	Model           string
+	ThinkingType    string // disabled, enabled, auto
+	ReasoningEffort string // low, medium, high, minimal
+	EnableThinking  bool   // true/false, 用于某些 API 提供商
 }
 
 type Message struct {
@@ -37,6 +40,7 @@ type ChatRequest struct {
 	MaxTokens        int       `json:"max_tokens,omitempty"`
 	ThinkingType     string    `json:"thinking_type,omitempty"`     // disabled, enabled, auto
 	ReasoningEffort  string    `json:"reasoning_effort,omitempty"`  // low, medium, high, minimal
+	EnableThinking   bool      `json:"enable_thinking,omitempty"`   // true/false, 用于某些 API 提供商
 }
 
 type Tool struct {
@@ -95,12 +99,26 @@ func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*Ch
 		ctx = context.Background()
 	}
 
+	// 如果 req 中没有设置这些参数，则从 cfg 中获取默认值
+	if req.ThinkingType == "" && cfg.ThinkingType != "" {
+		req.ThinkingType = cfg.ThinkingType
+	}
+	if req.ReasoningEffort == "" && cfg.ReasoningEffort != "" {
+		req.ReasoningEffort = cfg.ReasoningEffort
+	}
+	if !req.EnableThinking && cfg.EnableThinking {
+		req.EnableThinking = cfg.EnableThinking
+	}
+
 	logger.Logger.Debug("LLM Client Chat请求开始",
 		zap.String("model", req.Model),
 		zap.String("base_url", cfg.BaseURL),
 		zap.Int("messages_count", len(req.Messages)),
 		zap.Int("tools_count", len(req.Tools)),
 		zap.String("tool_choice", req.ToolChoice),
+		zap.String("thinking_type", req.ThinkingType),
+		zap.String("reasoning_effort", req.ReasoningEffort),
+		zap.Bool("enable_thinking", req.EnableThinking),
 	)
 
 	params, err := buildChatParams(req)
@@ -202,13 +220,29 @@ func buildChatParams(req ChatRequest) (openai.ChatCompletionNewParams, error) {
 		}
 	}
 
-	// 处理thinking_type和reasoning_effort参数
-	// 注意：reasoning_effort是OpenAI较新的参数，当前SDK版本可能不完全支持
-	// 这些参数已经存储在数据库中，前端可配置
-	// TODO: 需要升级SDK或使用自定义HTTP客户端来传递这些参数
-	// 目前暂时注释掉，等SDK支持后再启用
-	_ = req.ThinkingType    // 暂时未使用，保留字段避免警告
-	_ = req.ReasoningEffort // 暂时未使用，保留字段避免警告
+	// 处理 reasoning_effort 参数（SDK 原生支持）
+	// 支持 o1 系列模型的推理深度设置: low, medium, high
+	if req.ReasoningEffort != "" {
+		params.ReasoningEffort = openai.ReasoningEffort(req.ReasoningEffort)
+	}
+
+	// 处理其他额外参数（使用 extra_body 传递 SDK 不直接支持的参数）
+	extraFields := make(map[string]any)
+
+	// 处理 enable_thinking 参数（用于某些 API 提供商）
+	if req.EnableThinking {
+		extraFields["enable_thinking"] = true
+	}
+
+	// 处理 thinking_type 参数（SDK 可能不直接支持）
+	if req.ThinkingType != "" && req.ThinkingType != "disabled" {
+		extraFields["thinking_type"] = req.ThinkingType
+	}
+
+	// 如果有额外字段，设置到 params
+	if len(extraFields) > 0 {
+		params.SetExtraFields(extraFields)
+	}
 
 	return params, nil
 }

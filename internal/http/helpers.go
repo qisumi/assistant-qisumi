@@ -33,8 +33,11 @@ func GetLLMConfig(c *gin.Context, svc *auth.LLMSettingService, userID uint64) (*
 		return nil, errors.New("LLM API key not set")
 	}
 	return &llm.Config{
-		BaseURL: llmConfig.BaseURL,
-		APIKey:  llmConfig.APIKey,
-		Model:   llmConfig.Model,
+		BaseURL:         llmConfig.BaseURL,
+		APIKey:          llmConfig.APIKey,
+		Model:           llmConfig.Model,
+		ThinkingType:    llmConfig.ThinkingType,
+		ReasoningEffort: llmConfig.ReasoningEffort,
+		EnableThinking:  llmConfig.EnableThinking,
 	}, nil
 }

@@ -20,6 +20,7 @@ type UserLLMSetting struct {
 	Model            string    `gorm:"column:model;type:varchar(255);not null" json:"model"`
 	ThinkingType     string    `gorm:"column:thinking_type;type:varchar(20);default:'auto'" json:"thinking_type"`
 	ReasoningEffort  string    `gorm:"column:reasoning_effort;type:varchar(20);default:'medium'" json:"reasoning_effort"`
+	EnableThinking   bool      `gorm:"column:enable_thinking;default:false" json:"enable_thinking"`
 	AssistantName    string    `gorm:"column:assistant_name;type:varchar(100);default:'小奇'" json:"assistant_name"`
 	CreatedAt        time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
