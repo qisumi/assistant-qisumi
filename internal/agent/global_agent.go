@@ -8,6 +8,7 @@ import (
 
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/logger"
+	"assistant-qisumi/internal/prompts"
 
 	"go.uber.org/zap"
 )
@@ -38,7 +39,7 @@ func (a *GlobalAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	messages := []llm.Message{
 		{
 			Role:    "system",
-			Content: GlobalSystemPrompt,
+			Content: prompts.GlobalSystemPrompt,
 		},
 	}
 

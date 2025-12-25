@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/prompts"
 	"assistant-qisumi/internal/session"
 	"assistant-qisumi/internal/task"
 )
@@ -47,7 +48,7 @@ func BuildExecutorMessages(t *task.Task, dependencies []task.TaskDependency, his
 	msgs := []llm.Message{
 		{
 			Role:    "system",
-			Content: ExecutorSystemPrompt,
+			Content: prompts.ExecutorSystemPrompt,
 		},
 		{
 			Role: "system",
@@ -101,7 +102,7 @@ func BuildPlannerMessages(t *task.Task, history []session.Message, userInput str
 	msgs := []llm.Message{
 		{
 			Role:    "system",
-			Content: PlannerSystemPrompt,
+			Content: prompts.PlannerSystemPrompt,
 		},
 		{
 			Role: "system",

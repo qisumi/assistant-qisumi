@@ -9,6 +9,7 @@ import (
 
 	"assistant-qisumi/internal/common"
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/prompts"
 )
 
 type Service struct {
@@ -27,7 +28,7 @@ func (s *Service) CreateFromText(ctx context.Context, userID uint64, rawText str
 	messages := []llm.Message{
 		{
 			Role:    "system",
-			Content: common.TaskCreationSystemPrompt,
+			Content: prompts.TaskCreationSystemPrompt,
 		},
 		{
 			Role:    "system",

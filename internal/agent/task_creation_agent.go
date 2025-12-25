@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"assistant-qisumi/internal/common"
 	"assistant-qisumi/internal/llm"
+	"assistant-qisumi/internal/prompts"
 	"assistant-qisumi/internal/task"
 )
 
@@ -25,7 +25,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 	messages := []llm.Message{
 		{
 			Role:    "system",
-			Content: common.TaskCreationSystemPrompt,
+			Content: prompts.TaskCreationSystemPrompt,
 		},
 		{
 			Role:    "system",
