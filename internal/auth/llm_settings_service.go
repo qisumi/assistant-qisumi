@@ -19,18 +19,22 @@ type LLMSettingService struct {
 
 // LLMConfig 用于对外暴露的LLM配置，不包含加密的API密钥
 type LLMConfig struct {
-	BaseURL   string `json:"base_url"`
-	APIKey    string `json:"api_key,omitempty"` // 明文API密钥，仅用于客户端调用
-	Model     string `json:"model"`
-	HasAPIKey bool   `json:"has_api_key"`
-	IsDefault bool   `json:"is_default"`
+	BaseURL          string `json:"base_url"`
+	APIKey           string `json:"api_key,omitempty"` // 明文API密钥，仅用于客户端调用
+	Model            string `json:"model"`
+	ThinkingType     string `json:"thinking_type"`      // disabled, enabled, auto
+	ReasoningEffort  string `json:"reasoning_effort"`   // low, medium, high, minimal
+	HasAPIKey        bool   `json:"has_api_key"`
+	IsDefault        bool   `json:"is_default"`
 }
 
 // LLMSettingRequest 创建或更新LLM配置的请求
 type LLMSettingRequest struct {
-	BaseURL string `json:"base_url" binding:"required"`
-	APIKey  string `json:"api_key" binding:"required"`
-	Model   string `json:"model" binding:"required"`
+	BaseURL         string `json:"base_url" binding:"required"`
+	APIKey          string `json:"api_key" binding:"required"`
+	Model           string `json:"model" binding:"required"`
+	ThinkingType    string `json:"thinking_type"`    // disabled, enabled, auto
+	ReasoningEffort string `json:"reasoning_effort"` // low, medium, high, minimal
 }
 
 // NewLLMSettingService 创建新的用户LLM配置服务
@@ -112,11 +116,13 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 	}
 
 	return &LLMConfig{
-		BaseURL:   setting.BaseURL,
-		APIKey:    apiKey,
-		Model:     setting.Model,
-		HasAPIKey: true,
-		IsDefault: false,
+		BaseURL:         setting.BaseURL,
+		APIKey:          apiKey,
+		Model:           setting.Model,
+		ThinkingType:    setting.ThinkingType,
+		ReasoningEffort: setting.ReasoningEffort,
+		HasAPIKey:       true,
+		IsDefault:       false,
 	}, nil
 }
 
@@ -137,10 +143,12 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 	if existingSetting == nil {
 		// 创建新配置
 		setting := &UserLLMSetting{
-			UserID:    userID,
-			BaseURL:   req.BaseURL,
-			APIKeyEnc: encryptedKey,
-			Model:     req.Model,
+			UserID:          userID,
+			BaseURL:         req.BaseURL,
+			APIKeyEnc:       encryptedKey,
+			Model:           req.Model,
+			ThinkingType:    req.ThinkingType,
+			ReasoningEffort: req.ReasoningEffort,
 		}
 		return s.repo.Create(ctx, setting)
 	}
@@ -149,6 +157,8 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 	existingSetting.BaseURL = req.BaseURL
 	existingSetting.APIKeyEnc = encryptedKey
 	existingSetting.Model = req.Model
+	existingSetting.ThinkingType = req.ThinkingType
+	existingSetting.ReasoningEffort = req.ReasoningEffort
 
 	return s.repo.Update(ctx, existingSetting)
 }

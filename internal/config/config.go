@@ -22,9 +22,11 @@ type Config struct {
 
 // LLMConfig LLM配置
 type LLMConfig struct {
-	APIKey     string
-	ModelName  string
-	APIBaseURL string
+	APIKey          string
+	ModelName       string
+	APIBaseURL      string
+	ThinkingType    string // disabled, enabled, auto
+	ReasoningEffort string // low, medium, high, minimal
 }
 
 // DBConfig 数据库配置
@@ -98,9 +100,11 @@ func LoadConfig() (*Config, error) {
 			APIKeyEncryptionKey: getEnv("API_KEY_ENCRYPTION_KEY", "your-32-byte-encryption-key"),
 		},
 		LLM: LLMConfig{
-			APIKey:     getEnv("LLM_API_KEY", ""),
-			ModelName:  getEnv("LLM_MODEL_NAME", "qwen-plus"),
-			APIBaseURL: getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+			APIKey:          getEnv("LLM_API_KEY", ""),
+			ModelName:       getEnv("LLM_MODEL_NAME", "qwen-plus"),
+			APIBaseURL:      getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+			ThinkingType:    getEnv("LLM_THINKING_TYPE", "auto"),
+			ReasoningEffort: getEnv("LLM_REASONING_EFFORT", "medium"),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),

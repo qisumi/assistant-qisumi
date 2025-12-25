@@ -66,11 +66,13 @@ func (s *Server) setupRoutes() {
 		// LLM 设置服务
 		llmSettingRepo := auth.NewLLMSettingRepository(s.db)
 		defaultLLMConfig := &auth.LLMConfig{
-			BaseURL:   s.llmCfg.APIBaseURL,
-			APIKey:    s.llmCfg.APIKey,
-			Model:     s.llmCfg.ModelName,
-			HasAPIKey: s.llmCfg.APIKey != "",
-			IsDefault: true,
+			BaseURL:         s.llmCfg.APIBaseURL,
+			APIKey:          s.llmCfg.APIKey,
+			Model:           s.llmCfg.ModelName,
+			ThinkingType:    s.llmCfg.ThinkingType,
+			ReasoningEffort: s.llmCfg.ReasoningEffort,
+			HasAPIKey:       s.llmCfg.APIKey != "",
+			IsDefault:       true,
 		}
 		llmSettingService := auth.NewLLMSettingService(llmSettingRepo, s.cryptoCfg.APIKeyEncryptionKey, defaultLLMConfig)
 

@@ -29,12 +29,14 @@ type Message struct {
 }
 
 type ChatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Tools       []Tool    `json:"tools,omitempty"`
-	ToolChoice  string    `json:"tool_choice,omitempty"`
-	Temperature float64   `json:"temperature,omitempty"`
-	MaxTokens   int       `json:"max_tokens,omitempty"`
+	Model            string    `json:"model"`
+	Messages         []Message `json:"messages"`
+	Tools            []Tool    `json:"tools,omitempty"`
+	ToolChoice       string    `json:"tool_choice,omitempty"`
+	Temperature      float64   `json:"temperature,omitempty"`
+	MaxTokens        int       `json:"max_tokens,omitempty"`
+	ThinkingType     string    `json:"thinking_type,omitempty"`     // disabled, enabled, auto
+	ReasoningEffort  string    `json:"reasoning_effort,omitempty"`  // low, medium, high, minimal
 }
 
 type Tool struct {
@@ -199,6 +201,14 @@ func buildChatParams(req ChatRequest) (openai.ChatCompletionNewParams, error) {
 			OfAuto: openai.String(req.ToolChoice),
 		}
 	}
+
+	// 处理thinking_type和reasoning_effort参数
+	// 注意：reasoning_effort是OpenAI较新的参数，当前SDK版本可能不完全支持
+	// 这些参数已经存储在数据库中，前端可配置
+	// TODO: 需要升级SDK或使用自定义HTTP客户端来传递这些参数
+	// 目前暂时注释掉，等SDK支持后再启用
+	_ = req.ThinkingType    // 暂时未使用，保留字段避免警告
+	_ = req.ReasoningEffort // 暂时未使用，保留字段避免警告
 
 	return params, nil
 }

@@ -1,9 +1,17 @@
 import React, { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Form, Input, Button, Typography, App, Alert, Space } from 'antd';
+import { Card, Form, Input, Button, Typography, App, Alert, Space, Select } from 'antd';
 import { SettingOutlined, LockOutlined, GlobalOutlined, SaveOutlined } from '@ant-design/icons';
 
-import { fetchLLMSettings, updateLLMSettings, type LLMSettings } from '@/api/settings';
+import {
+  fetchLLMSettings,
+  updateLLMSettings,
+  type LLMSettings,
+  ThinkingType,
+  ReasoningEffort,
+  ThinkingTypeLabels,
+  ReasoningEffortLabels,
+} from '@/api/settings';
 import { PageHeader } from '@/components/layout/PageHeader';
 
 const { Title, Paragraph } = Typography;
@@ -35,6 +43,8 @@ const Settings: React.FC = () => {
       form.setFieldsValue({
         base_url: settings.base_url,
         model: settings.model,
+        thinking_type: settings.thinking_type || ThinkingType.Auto,
+        reasoning_effort: settings.reasoning_effort || ReasoningEffort.Medium,
         // api_key 通常不回显
       });
     }
@@ -91,6 +101,8 @@ const Settings: React.FC = () => {
           initialValues={{
             base_url: 'https://api.openai.com/v1',
             model: 'gpt-3.5-turbo',
+            thinking_type: ThinkingType.Auto,
+            reasoning_effort: ReasoningEffort.Medium,
           }}
         >
           <Form.Item
@@ -131,6 +143,41 @@ const Settings: React.FC = () => {
             tooltip="例如: gpt-3.5-turbo, gpt-4, qwen-plus, qwen-max 等"
           >
             <Input placeholder="gpt-3.5-turbo" style={{ borderRadius: '6px' }} />
+          </Form.Item>
+
+          <Form.Item
+            label="深度思考"
+            name="thinking_type"
+            rules={[{ required: true, message: '请选择深度思考模式' }]}
+            tooltip="控制模型是否使用深度思考能力"
+          >
+            <Select
+              placeholder="请选择深度思考模式"
+              style={{ borderRadius: '6px' }}
+              options={[
+                { label: ThinkingTypeLabels[ThinkingType.Disabled], value: ThinkingType.Disabled },
+                { label: ThinkingTypeLabels[ThinkingType.Enabled], value: ThinkingType.Enabled },
+                { label: ThinkingTypeLabels[ThinkingType.Auto], value: ThinkingType.Auto },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="思考强度"
+            name="reasoning_effort"
+            rules={[{ required: true, message: '请选择思考强度' }]}
+            tooltip="控制模型深度思考的强度级别"
+          >
+            <Select
+              placeholder="请选择思考强度"
+              style={{ borderRadius: '6px' }}
+              options={[
+                { label: ReasoningEffortLabels[ReasoningEffort.Minimal], value: ReasoningEffort.Minimal },
+                { label: ReasoningEffortLabels[ReasoningEffort.Low], value: ReasoningEffort.Low },
+                { label: ReasoningEffortLabels[ReasoningEffort.Medium], value: ReasoningEffort.Medium },
+                { label: ReasoningEffortLabels[ReasoningEffort.High], value: ReasoningEffort.High },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Card>

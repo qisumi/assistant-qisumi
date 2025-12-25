@@ -160,6 +160,6 @@ Environment variables (`.env`):
 
 ## Future Enhancements (TODO.md)
 
-1. Customizable assistant nickname
-2. dark mode UI
-3. Streaming response support
+1. 自定义助手昵称
+2. 暗色模式支持
+3. 流式响应支持
