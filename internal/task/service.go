@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"assistant-qisumi/internal/common"
 	"assistant-qisumi/internal/llm"
@@ -20,16 +21,22 @@ func NewService(repo *Repository, llmClient llm.Client) *Service {
 }
 
 // CreateFromText: 调用 LLM 把一段文本变成 Task + Steps
+// 使用 TaskCreationAgent 的 prompt 来生成高质量的任务和步骤
 func (s *Service) CreateFromText(ctx context.Context, userID uint64, rawText string, cfg llm.Config) (*Task, error) {
-	// 1. 构造 prompt 和 ChatRequest
-	prompt := `请将以下文本转换为结构化的任务和步骤。输出格式必须为JSON，包含title、description、due_at、priority、steps数组。
-steps数组中的每个元素必须包含title、detail、estimate_minutes（可选）、status默认为"todo"。
-
-文本内容：` + rawText
-
+	// 1. 构造 messages（使用 TaskCreationSystemPrompt）
 	messages := []llm.Message{
-		{Role: "system", Content: "你是一个任务规划助手，能够将自然语言文本转换为结构化的任务和步骤。"},
-		{Role: "user", Content: prompt},
+		{
+			Role:    "system",
+			Content: common.TaskCreationSystemPrompt,
+		},
+		{
+			Role:    "system",
+			Content: "当前时间 now: " + time.Now().Format(time.RFC3339),
+		},
+		{
+			Role:    "user",
+			Content: rawText,
+		},
 	}
 
 	req := llm.ChatRequest{
@@ -45,11 +52,11 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 
 	// 3. 解析 JSON -> Task + Steps
 	var taskData struct {
-		Title       string        `json:"title"`
-		Description string        `json:"description"`
-		DueAt       *FlexibleTime `json:"due_at,omitempty"`
-		Priority    string        `json:"priority"`
-		Steps       []TaskStep    `json:"steps"`
+		Title       string             `json:"title"`
+		Description string             `json:"description"`
+		DueAt       *FlexibleTime      `json:"due_at,omitempty"`
+		Priority    string             `json:"priority"`
+		Steps       []taskCreationStep `json:"steps"`
 	}
 
 	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
@@ -62,8 +69,15 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 	}
 
 	// 4. 构造 Task 对象
-	for i := range taskData.Steps {
-		taskData.Steps[i].OrderIndex = i
+	steps := make([]TaskStep, len(taskData.Steps))
+	for i, s := range taskData.Steps {
+		steps[i] = TaskStep{
+			Title:       s.Title,
+			Detail:      s.Detail,
+			EstimateMin: &s.EstimateMinutes,
+			OrderIndex:  i,
+			Status:      "todo",
+		}
 	}
 
 	t := &Task{
@@ -73,7 +87,7 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 		Status:      "todo",
 		Priority:    taskData.Priority,
 		DueAt:       taskData.DueAt,
-		Steps:       taskData.Steps,
+		Steps:       steps,
 	}
 
 	// 5. 调用 repo.InsertTaskWithSteps
@@ -82,6 +96,14 @@ steps数组中的每个元素必须包含title、detail、estimate_minutes（可
 	}
 
 	return t, nil
+}
+
+// taskCreationStep 用于解析 TaskCreationAgent 生成的步骤数据
+type taskCreationStep struct {
+	Title           string `json:"title"`
+	Detail          string `json:"detail"`
+	EstimateMinutes int    `json:"estimate_minutes"`
+	OrderIndex      int    `json:"order_index"`
 }
 
 // ListTasks 获取用户任务列表
