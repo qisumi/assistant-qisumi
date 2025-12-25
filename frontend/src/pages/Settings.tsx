@@ -45,7 +45,6 @@ const Settings: React.FC = () => {
         model: settings.model,
         thinking_type: settings.thinking_type || ThinkingType.Auto,
         reasoning_effort: settings.reasoning_effort || ReasoningEffort.Medium,
-        assistant_name: settings.assistant_name || '小奇',
         // api_key 通常不回显
       });
     }
@@ -97,7 +96,7 @@ const Settings: React.FC = () => {
       {settings && (
         <Alert
           message="功能提示"
-          description="您可以在不填写 API 密钥的情况下，单独修改助手名称和其他设置。只有需要更换 API 密钥时才需要填写。"
+          description="您可以在不填写 API 密钥的情况下，单独修改其他设置。只有需要更换 API 密钥时才需要填写。"
           type="success"
           showIcon
           closable
@@ -116,7 +115,6 @@ const Settings: React.FC = () => {
             model: 'gpt-3.5-turbo',
             thinking_type: ThinkingType.Auto,
             reasoning_effort: ReasoningEffort.Medium,
-            assistant_name: '小奇',
           }}
         >
           <Form.Item
@@ -146,7 +144,6 @@ const Settings: React.FC = () => {
               <div>
                 <div>{settings ? "留空表示不修改已保存的密钥" : "请输入您的 API 密钥"}</div>
                 {!settings && <div style={{ marginTop: 4, color: '#ff4d4f' }}>首次配置必须提供 API 密钥</div>}
-                {settings && <div style={{ marginTop: 4, color: '#52c41a' }}>您可以只修改助手名称而不用填写API密钥</div>}
               </div>
             }
           >
@@ -163,20 +160,6 @@ const Settings: React.FC = () => {
             tooltip="例如: gpt-3.5-turbo, gpt-4, qwen-plus, qwen-max 等"
           >
             <Input placeholder="gpt-3.5-turbo" style={{ borderRadius: '6px' }} />
-          </Form.Item>
-
-          <Form.Item
-            label="助手名称"
-            name="assistant_name"
-            rules={[{ required: true, message: '请输入助手名称' }]}
-            tooltip={
-              <div>
-                <div>设置您的AI助手的名称</div>
-                {settings && <div style={{ marginTop: 4, color: '#52c41a' }}>您可以随时修改助手名称，无需填写API密钥</div>}
-              </div>
-            }
-          >
-            <Input placeholder="小奇" style={{ borderRadius: '6px' }} />
           </Form.Item>
 
           <Form.Item
