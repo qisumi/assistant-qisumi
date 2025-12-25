@@ -32,11 +32,11 @@ type LLMConfig struct {
 // LLMSettingRequest 创建或更新LLM配置的请求
 type LLMSettingRequest struct {
 	BaseURL         string `json:"base_url" binding:"required"`
-	APIKey          string `json:"api_key" binding:"required"`
+	APIKey          string `json:"api_key"`           // 可选：为空时表示不修改已有API Key
 	Model           string `json:"model" binding:"required"`
-	ThinkingType    string `json:"thinking_type"`    // disabled, enabled, auto
-	ReasoningEffort string `json:"reasoning_effort"` // low, medium, high, minimal
-	AssistantName   string `json:"assistant_name"`   // 助手名称
+	ThinkingType    string `json:"thinking_type"`     // disabled, enabled, auto
+	ReasoningEffort string `json:"reasoning_effort"`  // low, medium, high, minimal
+	AssistantName   string `json:"assistant_name"`    // 助手名称
 }
 
 // NewLLMSettingService 创建新的用户LLM配置服务
@@ -131,20 +131,25 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 
 // UpdateLLMSetting 更新用户的LLM配置
 func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64, req LLMSettingRequest) error {
-	// 加密API密钥
-	encryptedKey, err := s.encryptAPIKey(req.APIKey)
-	if err != nil {
-		return err
-	}
-
 	// 检查是否已存在配置
 	existingSetting, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
+	var encryptedKey string
+
 	if existingSetting == nil {
-		// 创建新配置
+		// 创建新配置：API Key 必须提供
+		if req.APIKey == "" {
+			return errors.New("API Key is required when creating new settings")
+		}
+		// 加密API密钥
+		encryptedKey, err = s.encryptAPIKey(req.APIKey)
+		if err != nil {
+			return err
+		}
+
 		setting := &UserLLMSetting{
 			UserID:          userID,
 			BaseURL:         req.BaseURL,
@@ -159,11 +164,19 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 
 	// 更新现有配置
 	existingSetting.BaseURL = req.BaseURL
-	existingSetting.APIKeyEnc = encryptedKey
 	existingSetting.Model = req.Model
 	existingSetting.ThinkingType = req.ThinkingType
 	existingSetting.ReasoningEffort = req.ReasoningEffort
 	existingSetting.AssistantName = req.AssistantName
+
+	// 仅在提供了新 API Key 时才更新
+	if req.APIKey != "" {
+		encryptedKey, err = s.encryptAPIKey(req.APIKey)
+		if err != nil {
+			return err
+		}
+		existingSetting.APIKeyEnc = encryptedKey
+	}
 
 	return s.repo.Update(ctx, existingSetting)
 }

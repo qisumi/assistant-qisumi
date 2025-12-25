@@ -90,8 +90,20 @@ const Settings: React.FC = () => {
         description="您的 API 密钥将被加密存储在服务器上。为了安全起见，获取设置时不会返回已保存的密钥。"
         type="info"
         showIcon
-        style={{ marginBottom: 24 }}
+        style={{ marginBottom: 16 }}
       />
+
+      {/* Helper info alert */}
+      {settings && (
+        <Alert
+          message="功能提示"
+          description="您可以在不填写 API 密钥的情况下，单独修改助手名称和其他设置。只有需要更换 API 密钥时才需要填写。"
+          type="success"
+          showIcon
+          closable
+          style={{ marginBottom: 24 }}
+        />
+      )}
 
       {/* Settings form */}
       <Card title="API 配置">
@@ -130,10 +142,16 @@ const Settings: React.FC = () => {
             }
             name="api_key"
             rules={[{ required: !settings, message: '请输入 API 密钥' }]}
-            tooltip={settings ? "留空表示不修改已保存的密钥" : "请输入您的 API 密钥"}
+            tooltip={
+              <div>
+                <div>{settings ? "留空表示不修改已保存的密钥" : "请输入您的 API 密钥"}</div>
+                {!settings && <div style={{ marginTop: 4, color: '#ff4d4f' }}>首次配置必须提供 API 密钥</div>}
+                {settings && <div style={{ marginTop: 4, color: '#52c41a' }}>您可以只修改助手名称而不用填写API密钥</div>}
+              </div>
+            }
           >
             <Input.Password
-              placeholder={settings ? "••••••••••••••••" : "sk-..."}
+              placeholder={settings ? "留空表示不修改" : "sk-..."}
               style={{ borderRadius: '6px' }}
             />
           </Form.Item>
@@ -151,7 +169,12 @@ const Settings: React.FC = () => {
             label="助手名称"
             name="assistant_name"
             rules={[{ required: true, message: '请输入助手名称' }]}
-            tooltip="设置您的AI助手的名称"
+            tooltip={
+              <div>
+                <div>设置您的AI助手的名称</div>
+                {settings && <div style={{ marginTop: 4, color: '#52c41a' }}>您可以随时修改助手名称，无需填写API密钥</div>}
+              </div>
+            }
           >
             <Input placeholder="小奇" style={{ borderRadius: '6px' }} />
           </Form.Item>

@@ -65,6 +65,10 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 如果文本里面包含多个大任务，你可以倾向于专注于最大的核心任务，并把其余内容融入 description 或 steps 中。`,
 		},
 		{
+			Role:    "system",
+			Content: "当前时间 now: " + req.Now.Format(time.RFC3339),
+		},
+		{
 			Role:    "user",
 			Content: req.UserInput,
 		},

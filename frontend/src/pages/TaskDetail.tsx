@@ -33,6 +33,7 @@ const TaskDetail: React.FC = () => {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [editingDueAt, setEditingDueAt] = useState(false);
+  const [dueAtValue, setDueAtValue] = useState<dayjs.Dayjs | null>(null);
   const [isAddStepModalVisible, setIsAddStepModalVisible] = useState(false);
   const [addStepForm] = Form.useForm();
   const [titleValue, setTitleValue] = useState('');
@@ -212,16 +213,26 @@ const TaskDetail: React.FC = () => {
     setStepDetailValue('');
   };
 
-  const handleUpdateDueAt = async (date: dayjs.Dayjs | null) => {
+  const handleUpdateDueAt = async () => {
     try {
       await updateTaskMutation.mutateAsync({
-        dueAt: date ? date.toISOString() : null
+        dueAt: dueAtValue ? dueAtValue.toISOString() : null
       });
       message.success('截止时间已更新');
       setEditingDueAt(false);
     } catch (error) {
       // 错误已在mutation中处理
     }
+  };
+
+  const handleCancelEditDueAt = () => {
+    setDueAtValue(null);
+    setEditingDueAt(false);
+  };
+
+  const handleStartEditDueAt = () => {
+    setDueAtValue(task.dueAt ? dayjs(task.dueAt) : null);
+    setEditingDueAt(true);
   };
 
   const handleUpdateTitle = async () => {
@@ -483,22 +494,27 @@ const TaskDetail: React.FC = () => {
                         <DatePicker
                           showTime
                           format="YYYY-MM-DD HH:mm"
-                          defaultValue={task.dueAt ? dayjs(task.dueAt) : null}
-                          onChange={(date) => handleUpdateDueAt(date)}
-                          onBlur={() => setEditingDueAt(false)}
+                          value={dueAtValue}
+                          onChange={(date) => setDueAtValue(date)}
                           autoFocus
                           open
                           style={{ width: 200 }}
                         />
                         <Button
+                          type="primary"
+                          size="small"
+                          icon={<CheckOutlined />}
+                          onClick={handleUpdateDueAt}
+                        />
+                        <Button
                           size="small"
                           icon={<CloseOutlined />}
-                          onClick={() => setEditingDueAt(false)}
+                          onClick={handleCancelEditDueAt}
                         />
                       </Space.Compact>
                     ) : (
                       <div
-                        onClick={() => setEditingDueAt(true)}
+                        onClick={handleStartEditDueAt}
                         style={{
                           cursor: 'pointer',
                           display: 'inline-block'
