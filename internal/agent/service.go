@@ -304,8 +304,8 @@ func (s *Service) updateCompletedAtForTask(fields task.UpdateTaskFields) {
 func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *gorm.DB, taskID, stepID uint64, fields task.UpdateStepFields) error {
 	repo := s.taskRepo.WithTx(tx)
 
-	// 自动设置/清除 CompletedAt
-	s.updateCompletedAtForStep(fields)
+	// 注意：不再需要在这里调用 updateCompletedAtForStep，
+	// 因为 repo.ApplyUpdateStepFields 已经自动处理了 completedAt 的设置/清除
 
 	if err := repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields); err != nil {
 		return err
@@ -363,20 +363,6 @@ func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *
 		}
 	}
 	return nil
-}
-
-// updateCompletedAtForStep 根据状态自动设置/清除 CompletedAt
-func (s *Service) updateCompletedAtForStep(fields task.UpdateStepFields) {
-	if fields.Status == nil {
-		return
-	}
-	if *fields.Status == "done" {
-		now := time.Now().Format(time.RFC3339)
-		fields.CompletedAt = &now
-	} else {
-		empty := ""
-		fields.CompletedAt = &empty
-	}
 }
 
 func (s *Service) applyInsertNewSteps(ctx context.Context, _ uint64, tx *gorm.DB, taskID uint64, _ *uint64, steps []task.NewStepRecord) error {

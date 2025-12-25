@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -87,6 +88,34 @@ func (r *Repository) ApplyUpdateStepFields(
 	userID, taskID, stepID uint64,
 	fields UpdateStepFields,
 ) error {
+	// 如果需要更新 status，需要先查询当前状态来决定是否自动设置 completedAt
+	if fields.Status != nil && fields.CompletedAt == nil {
+		var currentStep TaskStep
+		subQuery := r.db.
+			Select("id").
+			Table("tasks").
+			Where("id = ? AND user_id = ?", taskID, userID)
+
+		err := r.db.WithContext(ctx).
+			Where("id = ? AND task_id IN (?)", stepID, subQuery).
+			First(&currentStep).Error
+		if err != nil {
+			return err
+		}
+
+		// 自动处理 completedAt：当状态变为 done 时设置为当前时间，否则清除
+		now := r.db.NowFunc()
+		if *fields.Status == "done" && currentStep.Status != "done" {
+			// 状态从非 done 变为 done，设置 completedAt
+			completedAtStr := now.Format(time.RFC3339)
+			fields.CompletedAt = &completedAtStr
+		} else if *fields.Status != "done" && currentStep.Status == "done" {
+			// 状态从 done 变为非 done，清除 completedAt
+			emptyStr := ""
+			fields.CompletedAt = &emptyStr
+		}
+	}
+
 	updates, err := buildStepUpdateMap(fields)
 	if err != nil {
 		return err
