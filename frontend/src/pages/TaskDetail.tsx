@@ -34,6 +34,7 @@ const TaskDetail: React.FC = () => {
   const [editingDescription, setEditingDescription] = useState(false);
   const [editingDueAt, setEditingDueAt] = useState(false);
   const [dueAtValue, setDueAtValue] = useState<dayjs.Dayjs | null>(null);
+  const [dueAtPickerOpen, setDueAtPickerOpen] = useState(false);
   const [isAddStepModalVisible, setIsAddStepModalVisible] = useState(false);
   const [addStepForm] = Form.useForm();
   const [titleValue, setTitleValue] = useState('');
@@ -220,19 +221,28 @@ const TaskDetail: React.FC = () => {
       });
       message.success('截止时间已更新');
       setEditingDueAt(false);
+      setDueAtPickerOpen(false);
     } catch (error) {
       // 错误已在mutation中处理
     }
   };
 
+  const handleDueDateChange = (date: dayjs.Dayjs | null) => {
+    setDueAtValue(date);
+    // 选择日期后立即关闭面板
+    setDueAtPickerOpen(false);
+  };
+
   const handleCancelEditDueAt = () => {
     setDueAtValue(null);
     setEditingDueAt(false);
+    setDueAtPickerOpen(false);
   };
 
   const handleStartEditDueAt = () => {
     setDueAtValue(task.dueAt ? dayjs(task.dueAt) : null);
     setEditingDueAt(true);
+    setDueAtPickerOpen(true);
   };
 
   const handleUpdateTitle = async () => {
@@ -490,14 +500,16 @@ const TaskDetail: React.FC = () => {
                   </Descriptions.Item>
                   <Descriptions.Item label={<Space size={4}><CalendarOutlined />截止日期</Space>}>
                     {editingDueAt ? (
-                      <Space.Compact>
+                      <Space.Compact style={{ display: 'flex', alignItems: 'center' }}>
                         <DatePicker
                           showTime
                           format="YYYY-MM-DD HH:mm"
                           value={dueAtValue}
-                          onChange={(date) => setDueAtValue(date)}
+                          onChange={handleDueDateChange}
+                          onOpenChange={setDueAtPickerOpen}
+                          open={dueAtPickerOpen}
                           autoFocus
-                          open
+                          size="small"
                           style={{ width: 200 }}
                         />
                         <Button
