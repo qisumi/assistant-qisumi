@@ -83,3 +83,4 @@ Thumbs.db
 # 数据库文件
 *.db
 .claude/settings.local.json
+.serena

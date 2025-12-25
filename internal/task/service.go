@@ -106,7 +106,11 @@ func (s *Service) UpdateTask(ctx context.Context, userID, taskID uint64, fields 
 
 // UpdateStep 更新步骤
 func (s *Service) UpdateStep(ctx context.Context, userID, taskID, stepID uint64, fields UpdateStepFields) error {
-	return s.repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields)
+	if err := s.repo.ApplyUpdateStepFields(ctx, userID, taskID, stepID, fields); err != nil {
+		return err
+	}
+	// 更新步骤后，总是更新任务的 updated_at
+	return s.repo.db.WithContext(ctx).Table("tasks").Where("id = ? AND user_id = ?", taskID, userID).Update("updated_at", s.repo.db.NowFunc()).Error
 }
 
 // CreateTask 创建任务

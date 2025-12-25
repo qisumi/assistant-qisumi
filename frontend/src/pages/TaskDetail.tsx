@@ -4,14 +4,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Tag, Button, Space, Typography, Spin, Divider, List, Checkbox,
   Breadcrumb, Modal, App, Tooltip, Descriptions,
-  Form, Input, InputNumber, DatePicker, Row, Col
+  Form, Input, InputNumber, DatePicker, Row, Col, Grid
 } from 'antd';
 import {
   ArrowLeftOutlined, CalendarOutlined, DeleteOutlined, FieldTimeOutlined,
-  CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined
+  CheckCircleOutlined, EditOutlined, PlusOutlined, CloseOutlined, CheckOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { fetchTaskDetail, deleteTask, addTaskStep, deleteTaskStep, updateTask } from '@/api/tasks';
+import { fetchTaskDetail, deleteTask, addTaskStep, deleteTaskStep, updateTask, updateTaskStep } from '@/api/tasks';
 import { fetchSessionMessages, sendSessionMessage } from '@/api/sessions';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { TaskEditForm } from '@/components/tasks/TaskEditForm';
@@ -27,6 +28,7 @@ const TaskDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const screens = Grid.useBreakpoint(); // Get current breakpoint
   const [editingTask, setEditingTask] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -35,6 +37,11 @@ const TaskDetail: React.FC = () => {
   const [addStepForm] = Form.useForm();
   const [titleValue, setTitleValue] = useState('');
   const [descriptionValue, setDescriptionValue] = useState('');
+  // Step editing states
+  const [editingStepId, setEditingStepId] = useState<number | null>(null);
+  const [editingStepField, setEditingStepField] = useState<'title' | 'detail' | null>(null);
+  const [stepTitleValue, setStepTitleValue] = useState('');
+  const [stepDetailValue, setStepDetailValue] = useState('');
   const { message } = App.useApp();
 
   const { data, isLoading, isError } = useQuery({
@@ -114,6 +121,18 @@ const TaskDetail: React.FC = () => {
     },
   });
 
+  const updateStepMutation = useMutation({
+    mutationFn: ({ stepId, fields }: { stepId: number; fields: any }) =>
+      updateTaskStep(id!, stepId, fields),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['taskDetail', id] });
+    },
+    onError: (err: any) => {
+      console.error(err);
+      message.error('更新失败，请稍后重试');
+    },
+  });
+
   const handleDeleteTask = () => {
     confirmDelete('任务', task.title, () => deleteMutation.mutate(task.id));
   };
@@ -136,6 +155,61 @@ const TaskDetail: React.FC = () => {
 
   const handleDeleteStep = (stepId: number, stepTitle: string) => {
     confirmDelete('步骤', stepTitle, () => deleteStepMutation.mutate({ taskId: id!, stepId }));
+  };
+
+  const handleStartEditStep = (step: TaskStep, field: 'title' | 'detail') => {
+    setEditingStepId(step.id);
+    setEditingStepField(field);
+    if (field === 'title') {
+      setStepTitleValue(step.title);
+    } else {
+      setStepDetailValue(step.detail || '');
+    }
+  };
+
+  const handleUpdateStepTitle = async (step: TaskStep) => {
+    if (stepTitleValue.trim() === '') {
+      message.error('标题不能为空');
+      return;
+    }
+    if (stepTitleValue !== step.title) {
+      try {
+        await updateStepMutation.mutateAsync({
+          stepId: step.id,
+          fields: { title: stepTitleValue }
+        });
+        message.success('步骤标题已更新');
+      } catch (error) {
+        // 错误已在 mutation 中处理
+        return;
+      }
+    }
+    setEditingStepId(null);
+    setEditingStepField(null);
+  };
+
+  const handleUpdateStepDetail = async (step: TaskStep) => {
+    if (stepDetailValue !== (step.detail || '')) {
+      try {
+        await updateStepMutation.mutateAsync({
+          stepId: step.id,
+          fields: { detail: stepDetailValue }
+        });
+        message.success('步骤详情已更新');
+      } catch (error) {
+        // 错误已在 mutation 中处理
+        return;
+      }
+    }
+    setEditingStepId(null);
+    setEditingStepField(null);
+  };
+
+  const handleCancelEditStep = () => {
+    setEditingStepId(null);
+    setEditingStepField(null);
+    setStepTitleValue('');
+    setStepDetailValue('');
   };
 
   const handleUpdateDueAt = async (date: dayjs.Dayjs | null) => {
@@ -339,7 +413,6 @@ const TaskDetail: React.FC = () => {
 
                 {/* Description with markdown */}
                 <div style={{ marginBottom: 24 }}>
-                  <Title level={5}>任务描述</Title>
                   {editingDescription ? (
                     <div>
                       <Input.TextArea
@@ -467,52 +540,344 @@ const TaskDetail: React.FC = () => {
                   </div>
                   <List
                     dataSource={task.steps || []}
-                    renderItem={(step: TaskStep, index: number) => (
-                      <div
-                        key={step.id}
-                        style={{
-                          borderBottom: index < (task.steps?.length || 0) - 1 ? '1px solid #f0f0f0' : 'none',
-                          padding: '12px 0',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                          <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 2, flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <StepEditableField step={step} taskId={task.id} />
-                            <Space size={8} wrap style={{ marginTop: 6 }}>
-                              {step.plannedStart && step.plannedEnd && (
-                                <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
-                                  <Space size={4}>
-                                    <CalendarOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#8c8c8c' }} />
-                                    <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
-                                      {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
-                                    </Text>
+                    renderItem={(step: TaskStep, index: number) => {
+                      // Use Ant Design's breakpoint system for responsive design
+                      const isMobile = !screens.md; // md is 768px and above
+                      const isEditingTitle = editingStepId === step.id && editingStepField === 'title';
+                      const isEditingDetail = editingStepId === step.id && editingStepField === 'detail';
+
+                      return (
+                        <div
+                          key={step.id}
+                          style={{
+                            borderBottom: index < (task.steps?.length || 0) - 1 ? '1px solid #f0f0f0' : 'none',
+                            padding: '12px 0',
+                          }}
+                        >
+                          {/* Mobile layout: vertical */}
+                          {isMobile ? (
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 2, flexShrink: 0 }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  {/* Title and detail with edit support */}
+                                  <div>
+                                    {/* Title editing or display */}
+                                    {isEditingTitle ? (
+                                      <Space.Compact style={{ width: '100%', marginBottom: 4 }}>
+                                        <Input
+                                          value={stepTitleValue}
+                                          onChange={(e) => setStepTitleValue(e.target.value)}
+                                          onPressEnter={() => handleUpdateStepTitle(step)}
+                                          autoFocus
+                                          size="small"
+                                        />
+                                        <Button
+                                          type="primary"
+                                          icon={<CheckOutlined />}
+                                          onClick={() => handleUpdateStepTitle(step)}
+                                          size="small"
+                                        />
+                                        <Button
+                                          icon={<CloseOutlined />}
+                                          onClick={handleCancelEditStep}
+                                          size="small"
+                                        />
+                                      </Space.Compact>
+                                    ) : (
+                                      <div
+                                        style={{
+                                          cursor: 'pointer',
+                                          display: 'inline-block',
+                                          padding: '2px 4px',
+                                          borderRadius: 4,
+                                          marginBottom: step.detail ? 4 : 0,
+                                          transition: 'background-color 0.2s',
+                                        }}
+                                        onClick={() => handleStartEditStep(step, 'title')}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                      >
+                                        <Text strong style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }}>{step.title}</Text>
+                                      </div>
+                                    )}
+
+                                    {/* Detail editing or display */}
+                                    {step.detail && (
+                                      isEditingDetail ? (
+                                        <div style={{ marginBottom: 4 }}>
+                                          <Input.TextArea
+                                            value={stepDetailValue}
+                                            onChange={(e) => setStepDetailValue(e.target.value)}
+                                            onPressEnter={() => handleUpdateStepDetail(step)}
+                                            autoSize={{ minRows: 1, maxRows: 4 }}
+                                            autoFocus
+                                            size="small"
+                                            style={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}
+                                          />
+                                          <Space style={{ marginTop: 4 }}>
+                                            <Button
+                                              type="primary"
+                                              size="small"
+                                              icon={<CheckOutlined />}
+                                              onClick={() => handleUpdateStepDetail(step)}
+                                            >
+                                              保存
+                                            </Button>
+                                            <Button
+                                              size="small"
+                                              icon={<CloseOutlined />}
+                                              onClick={handleCancelEditStep}
+                                            >
+                                              取消
+                                            </Button>
+                                          </Space>
+                                        </div>
+                                      ) : (
+                                        <div
+                                          style={{
+                                            cursor: 'pointer',
+                                            marginBottom: 4,
+                                            padding: '2px 4px',
+                                            borderRadius: 4,
+                                            transition: 'background-color 0.2s',
+                                          }}
+                                          onClick={() => handleStartEditStep(step, 'detail')}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        >
+                                          <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}>{step.detail}</Text>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+
+                                  {/* All tags in one row */}
+                                  <Space size={6} wrap style={{ marginTop: 6 }}>
+                                    {/* Status */}
+                                    <div
+                                      style={{
+                                        padding: '2px 6px',
+                                        borderRadius: 4,
+                                        backgroundColor: step.status === 'done' ? '#52c41a' : step.status === 'in_progress' ? '#faad14' : step.status === 'blocked' ? '#ff4d4f' : '#1890ff',
+                                        color: '#fff',
+                                        fontSize: 'clamp(0.625rem, 1vw, 0.75rem)',
+                                        display: 'inline-block',
+                                      }}
+                                    >
+                                      {step.status === 'locked' ? '已锁定' :
+                                       step.status === 'todo' ? '待办' :
+                                       step.status === 'in_progress' ? '进行中' :
+                                       step.status === 'done' ? '已完成' : '受阻'}
+                                    </div>
+
+                                    {/* Estimate */}
+                                    {step.estimateMinutes && (
+                                      <div
+                                        style={{
+                                          padding: '2px 6px',
+                                          borderRadius: 4,
+                                          backgroundColor: '#f5f5f5',
+                                          fontSize: 'clamp(0.625rem, 1vw, 0.75rem)',
+                                          display: 'inline-block',
+                                        }}
+                                      >
+                                        <Space size={4}>
+                                          <Text type="secondary" style={{ fontSize: 'clamp(0.625rem, 1vw, 0.75rem)' }}>
+                                            预计耗时：
+                                          </Text>
+                                          <ClockCircleOutlined style={{ fontSize: 'clamp(0.625rem, 1vw, 0.75rem)', color: '#8c8c8c' }} />
+                                          <Text type="secondary" style={{ fontSize: 'clamp(0.625rem, 1vw, 0.75rem)' }}>
+                                            {step.estimateMinutes >= 480 && step.estimateMinutes % 480 === 0
+                                              ? `${step.estimateMinutes / 480}天`
+                                              : step.estimateMinutes >= 60
+                                              ? step.estimateMinutes % 60 === 0
+                                                ? `${step.estimateMinutes / 60}小时`
+                                                : `${(step.estimateMinutes / 60).toFixed(1)}小时`
+                                              : `${step.estimateMinutes}分钟`}
+                                          </Text>
+                                        </Space>
+                                      </div>
+                                    )}
+
+                                    {/* Planned time */}
+                                    {step.plannedStart && step.plannedEnd && (
+                                      <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
+                                        <Space size={4}>
+                                          <CalendarOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#8c8c8c' }} />
+                                          <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
+                                            {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
+                                          </Text>
+                                        </Space>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Completed time */}
+                                    {step.completedAt && (
+                                      <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
+                                        <Space size={4}>
+                                          <CheckCircleOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#52c41a' }} />
+                                          <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
+                                            {formatRelativeTime(step.completedAt)}
+                                          </Text>
+                                        </Space>
+                                      </Tooltip>
+                                    )}
+
+                                    {/* Delete button */}
+                                    <Button
+                                      type="text"
+                                      danger
+                                      size="small"
+                                      icon={<DeleteOutlined />}
+                                      onClick={() => handleDeleteStep(step.id, step.title)}
+                                      style={{ padding: '4px 8px' }}
+                                    />
                                   </Space>
-                                </Tooltip>
-                              )}
-                              {step.completedAt && (
-                                <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
-                                  <Space size={4}>
-                                    <CheckCircleOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#52c41a' }} />
-                                    <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
-                                      {formatRelativeTime(step.completedAt)}
-                                    </Text>
-                                  </Space>
-                                </Tooltip>
-                              )}
-                            </Space>
-                          </div>
-                          <Button
-                            type="text"
-                            danger
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            onClick={() => handleDeleteStep(step.id, step.title)}
-                            style={{ flexShrink: 0, padding: '4px 8px' }}
-                          />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Desktop layout: horizontal */
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                              <Checkbox checked={step.status === 'done'} disabled style={{ marginTop: 8, flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* Step title and detail with edit support */}
+                                <div>
+                                  {/* Title editing or display */}
+                                  {isEditingTitle ? (
+                                    <Space.Compact style={{ width: '100%', marginBottom: 4 }}>
+                                      <Input
+                                        value={stepTitleValue}
+                                        onChange={(e) => setStepTitleValue(e.target.value)}
+                                        onPressEnter={() => handleUpdateStepTitle(step)}
+                                        autoFocus
+                                      />
+                                      <Button
+                                        type="primary"
+                                        icon={<CheckOutlined />}
+                                        onClick={() => handleUpdateStepTitle(step)}
+                                      />
+                                      <Button
+                                        icon={<CloseOutlined />}
+                                        onClick={handleCancelEditStep}
+                                      />
+                                    </Space.Compact>
+                                  ) : (
+                                    <div
+                                      style={{
+                                        cursor: 'pointer',
+                                        display: 'inline-block',
+                                        padding: '2px 4px',
+                                        borderRadius: 4,
+                                        marginBottom: step.detail ? 4 : 0,
+                                        transition: 'background-color 0.2s',
+                                      }}
+                                      onClick={() => handleStartEditStep(step, 'title')}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                      <Text strong style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1rem)' }}>{step.title}</Text>
+                                    </div>
+                                  )}
+
+                                  {/* Detail editing or display */}
+                                  {step.detail && (
+                                    isEditingDetail ? (
+                                      <div style={{ marginBottom: 4 }}>
+                                        <Input.TextArea
+                                          value={stepDetailValue}
+                                          onChange={(e) => setStepDetailValue(e.target.value)}
+                                          autoSize={{ minRows: 1, maxRows: 4 }}
+                                          autoFocus
+                                          style={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}
+                                        />
+                                        <Space style={{ marginTop: 4 }}>
+                                          <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<CheckOutlined />}
+                                            onClick={() => handleUpdateStepDetail(step)}
+                                          >
+                                            保存
+                                          </Button>
+                                          <Button
+                                            size="small"
+                                            icon={<CloseOutlined />}
+                                            onClick={handleCancelEditStep}
+                                          >
+                                            取消
+                                          </Button>
+                                        </Space>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        style={{
+                                          cursor: 'pointer',
+                                          marginBottom: 4,
+                                          padding: '2px 4px',
+                                          borderRadius: 4,
+                                          transition: 'background-color 0.2s',
+                                        }}
+                                        onClick={() => handleStartEditStep(step, 'detail')}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                      >
+                                        <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 1.2vw, 0.875rem)' }}>{step.detail}</Text>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                              {/* Right side: status, estimate, time info, delete button */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'flex-end',
+                                  gap: '6px',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {/* Status and estimate row */}
+                                <StepEditableField step={step} taskId={task.id} compact />
+                                {/* Time info and delete button row */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                  {step.plannedStart && step.plannedEnd && (
+                                    <Tooltip title={formatTimeRange(step.plannedStart, step.plannedEnd)}>
+                                      <Space size={4}>
+                                        <CalendarOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#8c8c8c' }} />
+                                        <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
+                                          {formatDate(step.plannedStart)} - {formatDate(step.plannedEnd)}
+                                        </Text>
+                                      </Space>
+                                    </Tooltip>
+                                  )}
+                                  {step.completedAt && (
+                                    <Tooltip title={`完成于 ${formatDateTime(step.completedAt)}`}>
+                                      <Space size={4}>
+                                        <CheckCircleOutlined style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)', color: '#52c41a' }} />
+                                        <Text type="secondary" style={{ fontSize: 'clamp(0.7rem, 1.1vw, 0.875rem)' }}>
+                                          {formatRelativeTime(step.completedAt)}
+                                        </Text>
+                                      </Space>
+                                    </Tooltip>
+                                  )}
+                                  <Button
+                                    type="text"
+                                    danger
+                                    size="small"
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleDeleteStep(step.id, step.title)}
+                                    style={{ flexShrink: 0, padding: '4px 8px' }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      );
+                    }}
                   />
                 </div>
               </>

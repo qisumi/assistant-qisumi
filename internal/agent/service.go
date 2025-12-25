@@ -311,11 +311,9 @@ func (s *Service) applyUpdateStepFields(ctx context.Context, userID uint64, tx *
 		return err
 	}
 
-	// 如果步骤状态发生变化，更新任务的 UpdatedAt
-	if fields.Status != nil {
-		if err := tx.Table("tasks").Where("id = ? AND user_id = ?", taskID, userID).Update("updated_at", time.Now()).Error; err != nil {
-			return err
-		}
+	// 更新步骤后，总是更新任务的 UpdatedAt（无论哪个字段变化）
+	if err := tx.Table("tasks").Where("id = ? AND user_id = ?", taskID, userID).Update("updated_at", time.Now()).Error; err != nil {
+		return err
 	}
 
 	// 如果状态变为 done，触发依赖处理

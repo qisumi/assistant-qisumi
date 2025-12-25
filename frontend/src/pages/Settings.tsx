@@ -45,6 +45,7 @@ const Settings: React.FC = () => {
         model: settings.model,
         thinking_type: settings.thinking_type || ThinkingType.Auto,
         reasoning_effort: settings.reasoning_effort || ReasoningEffort.Medium,
+        assistant_name: settings.assistant_name || '小奇',
         // api_key 通常不回显
       });
     }
@@ -103,6 +104,7 @@ const Settings: React.FC = () => {
             model: 'gpt-3.5-turbo',
             thinking_type: ThinkingType.Auto,
             reasoning_effort: ReasoningEffort.Medium,
+            assistant_name: '小奇',
           }}
         >
           <Form.Item
@@ -143,6 +145,15 @@ const Settings: React.FC = () => {
             tooltip="例如: gpt-3.5-turbo, gpt-4, qwen-plus, qwen-max 等"
           >
             <Input placeholder="gpt-3.5-turbo" style={{ borderRadius: '6px' }} />
+          </Form.Item>
+
+          <Form.Item
+            label="助手名称"
+            name="assistant_name"
+            rules={[{ required: true, message: '请输入助手名称' }]}
+            tooltip="设置您的AI助手的名称"
+          >
+            <Input placeholder="小奇" style={{ borderRadius: '6px' }} />
           </Form.Item>
 
           <Form.Item

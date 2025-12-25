@@ -27,6 +27,7 @@ type LLMConfig struct {
 	APIBaseURL      string
 	ThinkingType    string // disabled, enabled, auto
 	ReasoningEffort string // low, medium, high, minimal
+	AssistantName   string // 助手名称
 }
 
 // DBConfig 数据库配置
@@ -105,6 +106,7 @@ func LoadConfig() (*Config, error) {
 			APIBaseURL:      getEnv("LLM_API_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
 			ThinkingType:    getEnv("LLM_THINKING_TYPE", "auto"),
 			ReasoningEffort: getEnv("LLM_REASONING_EFFORT", "medium"),
+			AssistantName:   getEnv("ASSISTANT_NAME", "小奇"),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),

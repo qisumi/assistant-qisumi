@@ -71,6 +71,7 @@ func (s *Server) setupRoutes() {
 			Model:           s.llmCfg.ModelName,
 			ThinkingType:    s.llmCfg.ThinkingType,
 			ReasoningEffort: s.llmCfg.ReasoningEffort,
+			AssistantName:   s.llmCfg.AssistantName,
 			HasAPIKey:       s.llmCfg.APIKey != "",
 			IsDefault:       true,
 		}

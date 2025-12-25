@@ -160,6 +160,5 @@ Environment variables (`.env`):
 
 ## Future Enhancements (TODO.md)
 
-1. 自定义助手昵称
-2. 暗色模式支持
-3. 流式响应支持
+1. 暗色模式支持
+2. 流式响应支持

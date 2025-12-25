@@ -21,6 +21,7 @@ export interface LLMSettings {
   model: string;
   thinking_type?: ThinkingType;
   reasoning_effort?: ReasoningEffort;
+  assistant_name?: string; // 助手名称
 }
 
 export async function fetchLLMSettings(): Promise<LLMSettings> {

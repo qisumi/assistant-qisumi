@@ -24,6 +24,7 @@ type LLMConfig struct {
 	Model            string `json:"model"`
 	ThinkingType     string `json:"thinking_type"`      // disabled, enabled, auto
 	ReasoningEffort  string `json:"reasoning_effort"`   // low, medium, high, minimal
+	AssistantName    string `json:"assistant_name"`     // 助手名称
 	HasAPIKey        bool   `json:"has_api_key"`
 	IsDefault        bool   `json:"is_default"`
 }
@@ -35,6 +36,7 @@ type LLMSettingRequest struct {
 	Model           string `json:"model" binding:"required"`
 	ThinkingType    string `json:"thinking_type"`    // disabled, enabled, auto
 	ReasoningEffort string `json:"reasoning_effort"` // low, medium, high, minimal
+	AssistantName   string `json:"assistant_name"`   // 助手名称
 }
 
 // NewLLMSettingService 创建新的用户LLM配置服务
@@ -121,6 +123,7 @@ func (s *LLMSettingService) GetLLMConfig(ctx context.Context, userID uint64) (*L
 		Model:           setting.Model,
 		ThinkingType:    setting.ThinkingType,
 		ReasoningEffort: setting.ReasoningEffort,
+		AssistantName:   setting.AssistantName,
 		HasAPIKey:       true,
 		IsDefault:       false,
 	}, nil
@@ -149,6 +152,7 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 			Model:           req.Model,
 			ThinkingType:    req.ThinkingType,
 			ReasoningEffort: req.ReasoningEffort,
+			AssistantName:   req.AssistantName,
 		}
 		return s.repo.Create(ctx, setting)
 	}
@@ -159,6 +163,7 @@ func (s *LLMSettingService) UpdateLLMSetting(ctx context.Context, userID uint64,
 	existingSetting.Model = req.Model
 	existingSetting.ThinkingType = req.ThinkingType
 	existingSetting.ReasoningEffort = req.ReasoningEffort
+	existingSetting.AssistantName = req.AssistantName
 
 	return s.repo.Update(ctx, existingSetting)
 }
