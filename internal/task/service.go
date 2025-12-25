@@ -2,12 +2,10 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
-	"assistant-qisumi/internal/common"
+	"assistant-qisumi/internal/domain"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/prompts"
 )
@@ -51,45 +49,18 @@ func (s *Service) CreateFromText(ctx context.Context, userID uint64, rawText str
 		return nil, err
 	}
 
-	// 3. 解析 JSON -> Task + Steps
-	var taskData struct {
-		Title       string             `json:"title"`
-		Description string             `json:"description"`
-		DueAt       *FlexibleTime      `json:"due_at,omitempty"`
-		Priority    string             `json:"priority"`
-		Steps       []taskCreationStep `json:"steps"`
-	}
-
 	if len(resp.Choices) == 0 || resp.Choices[0].Message.Content == "" {
 		return nil, errors.New("llm returned empty response")
 	}
 
-	content := common.ExtractJSON(resp.Choices[0].Message.Content)
-	if err := json.Unmarshal([]byte(content), &taskData); err != nil {
-		return nil, fmt.Errorf("failed to parse llm response: %w, content: %s", err, content)
+	// 3. 使用 domain 包的共享逻辑解析响应
+	output, err := domain.ParseTaskCreationResponse(resp.Choices[0].Message.Content)
+	if err != nil {
+		return nil, err
 	}
 
-	// 4. 构造 Task 对象
-	steps := make([]TaskStep, len(taskData.Steps))
-	for i, s := range taskData.Steps {
-		steps[i] = TaskStep{
-			Title:       s.Title,
-			Detail:      s.Detail,
-			EstimateMin: &s.EstimateMinutes,
-			OrderIndex:  i,
-			Status:      "todo",
-		}
-	}
-
-	t := &Task{
-		UserID:      userID,
-		Title:       taskData.Title,
-		Description: taskData.Description,
-		Status:      "todo",
-		Priority:    taskData.Priority,
-		DueAt:       taskData.DueAt,
-		Steps:       steps,
-	}
+	// 4. 转换为 Task 对象
+	t := output.ToTask(userID)
 
 	// 5. 调用 repo.InsertTaskWithSteps
 	if err := s.repo.InsertTaskWithSteps(ctx, t); err != nil {
@@ -97,14 +68,6 @@ func (s *Service) CreateFromText(ctx context.Context, userID uint64, rawText str
 	}
 
 	return t, nil
-}
-
-// taskCreationStep 用于解析 TaskCreationAgent 生成的步骤数据
-type taskCreationStep struct {
-	Title           string `json:"title"`
-	Detail          string `json:"detail"`
-	EstimateMinutes int    `json:"estimate_minutes"`
-	OrderIndex      int    `json:"order_index"`
 }
 
 // ListTasks 获取用户任务列表

@@ -2,12 +2,11 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
+	"assistant-qisumi/internal/domain"
 	"assistant-qisumi/internal/llm"
 	"assistant-qisumi/internal/prompts"
-	"assistant-qisumi/internal/task"
 )
 
 type TaskCreationAgent struct {
@@ -49,7 +48,7 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 		return nil, err
 	}
 
-	// 2. 处理 LLM 响应，生成 assistant 回复文本和 TaskPatches
+	// 2. 处理 LLM 响应
 	if len(resp.Choices) == 0 {
 		return &AgentResponse{
 			AssistantMessage: "未能从文本生成任务，请重试。",
@@ -57,48 +56,25 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 		}, nil
 	}
 
-	// 3. 解析JSON响应
-	var taskData struct {
-		Title       string             `json:"title"`
-		Description string             `json:"description"`
-		DueAt       *task.FlexibleTime `json:"due_at,omitempty"`
-		Priority    string             `json:"priority"`
-		Steps       []taskCreationStep `json:"steps"`
-	}
-
-	if err := json.Unmarshal([]byte(resp.Choices[0].Message.Content), &taskData); err != nil {
+	// 3. 使用 domain 包的共享逻辑解析 JSON 响应
+	output, err := domain.ParseTaskCreationResponse(resp.Choices[0].Message.Content)
+	if err != nil {
 		return &AgentResponse{
 			AssistantMessage: "未能解析生成的任务数据，请重试。",
 			TaskPatches:      []TaskPatch{},
 		}, nil
 	}
 
-	// 4. 生成TaskPatches
-	var dueAtStr *string
-	if taskData.DueAt != nil {
-		s := taskData.DueAt.ToTime().Format(time.RFC3339)
-		dueAtStr = &s
-	}
-
-	records := make([]task.NewStepRecord, 0, len(taskData.Steps))
-	for _, s := range taskData.Steps {
-		est := s.EstimateMinutes
-		records = append(records, task.NewStepRecord{
-			Title:           s.Title,
-			Detail:          s.Detail,
-			EstimateMinutes: &est,
-		})
-	}
-
+	// 4. 生成 TaskPatches
 	patches := []TaskPatch{
 		{
 			Kind: PatchCreateTask,
 			CreateTask: &CreateTaskPatch{
-				Title:       taskData.Title,
-				Description: taskData.Description,
-				DueAt:       dueAtStr,
-				Priority:    taskData.Priority,
-				Steps:       records,
+				Title:       output.Title,
+				Description: output.Description,
+				DueAt:       output.DueAtString(),
+				Priority:    output.Priority,
+				Steps:       output.ToNewStepRecords(),
 			},
 		},
 	}
@@ -107,12 +83,4 @@ func (a *TaskCreationAgent) Handle(req AgentRequest) (*AgentResponse, error) {
 		AssistantMessage: "好的，我已经把这段内容整理成一个任务，并拆成了可执行的步骤。",
 		TaskPatches:      patches,
 	}, nil
-}
-
-// 用于解析TaskCreationAgent生成的步骤数据
-type taskCreationStep struct {
-	Title           string `json:"title"`
-	Detail          string `json:"detail"`
-	EstimateMinutes int    `json:"estimate_minutes"`
-	OrderIndex      int    `json:"order_index"`
 }

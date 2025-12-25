@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"assistant-qisumi/internal/domain"
 	"assistant-qisumi/internal/logger"
 
 	"github.com/openai/openai-go"
@@ -14,14 +15,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type Config struct {
-	BaseURL         string
-	APIKey          string
-	Model           string
-	ThinkingType    string // disabled, enabled, auto
-	ReasoningEffort string // low, medium, high, minimal
-	EnableThinking  bool   // true/false, 用于某些 API 提供商
-}
+// Config 是 domain.LLMConfig 的别名，保持向后兼容
+type Config = domain.LLMConfig
 
 type Message struct {
 	Role       string     `json:"role"`
@@ -32,15 +27,15 @@ type Message struct {
 }
 
 type ChatRequest struct {
-	Model            string    `json:"model"`
-	Messages         []Message `json:"messages"`
-	Tools            []Tool    `json:"tools,omitempty"`
-	ToolChoice       string    `json:"tool_choice,omitempty"`
-	Temperature      float64   `json:"temperature,omitempty"`
-	MaxTokens        int       `json:"max_tokens,omitempty"`
-	ThinkingType     string    `json:"thinking_type,omitempty"`     // disabled, enabled, auto
-	ReasoningEffort  string    `json:"reasoning_effort,omitempty"`  // low, medium, high, minimal
-	EnableThinking   bool      `json:"enable_thinking,omitempty"`   // true/false, 用于某些 API 提供商
+	Model           string    `json:"model"`
+	Messages        []Message `json:"messages"`
+	Tools           []Tool    `json:"tools,omitempty"`
+	ToolChoice      string    `json:"tool_choice,omitempty"`
+	Temperature     float64   `json:"temperature,omitempty"`
+	MaxTokens       int       `json:"max_tokens,omitempty"`
+	ThinkingType    string    `json:"thinking_type,omitempty"`    // disabled, enabled, auto
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"` // low, medium, high, minimal
+	EnableThinking  bool      `json:"enable_thinking,omitempty"`  // true/false, 用于某些 API 提供商
 }
 
 type Tool struct {
@@ -159,7 +154,7 @@ func (c *HTTPClient) Chat(ctx context.Context, cfg Config, req ChatRequest) (*Ch
 			zap.Int("tool_calls_count", len(choice.Message.ToolCalls)),
 			zap.String("content", choice.Message.Content),
 		)
-		
+
 		// 如果有工具调用，记录工具调用详情
 		if len(choice.Message.ToolCalls) > 0 {
 			for i, toolCall := range choice.Message.ToolCalls {

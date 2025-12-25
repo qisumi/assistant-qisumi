@@ -8,38 +8,20 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+
+	"assistant-qisumi/internal/domain"
 )
 
 // LLMSettingService 用户LLM配置服务
 type LLMSettingService struct {
 	repo          *LLMSettingRepository
 	encryptionKey []byte
-	defaultConfig *LLMConfig
+	defaultConfig *domain.LLMConfig
 }
 
-// LLMConfig 用于对外暴露的LLM配置，不包含加密的API密钥
-type LLMConfig struct {
-	BaseURL          string `json:"base_url"`
-	APIKey           string `json:"api_key,omitempty"` // 明文API密钥，仅用于客户端调用
-	Model            string `json:"model"`
-	ThinkingType     string `json:"thinking_type"`      // disabled, enabled, auto
-	ReasoningEffort  string `json:"reasoning_effort"`   // low, medium, high, minimal
-	EnableThinking   bool   `json:"enable_thinking"`    // true/false
-	AssistantName    string `json:"assistant_name"`     // 助手名称
-	HasAPIKey        bool   `json:"has_api_key"`
-	IsDefault        bool   `json:"is_default"`
-}
-
-// LLMSettingRequest 创建或更新LLM配置的请求
-type LLMSettingRequest struct {
-	BaseURL         string `json:"base_url" binding:"required"`
-	APIKey          string `json:"api_key"`           // 可选：为空时表示不修改已有API Key
-	Model           string `json:"model" binding:"required"`
-	ThinkingType    string `json:"thinking_type"`     // disabled, enabled, auto
-	ReasoningEffort string `json:"reasoning_effort"`  // low, medium, high, minimal
-	EnableThinking  bool   `json:"enable_thinking"`   // true/false
-	AssistantName   string `json:"assistant_name"`    // 助手名称
-}
+// 类型别名 - 使用 domain 包中的统一定义
+type LLMConfig = domain.LLMConfig
+type LLMSettingRequest = domain.LLMSettingRequest
 
 // NewLLMSettingService 创建新的用户LLM配置服务
 func NewLLMSettingService(repo *LLMSettingRepository, encryptionKey string, defaultConfig *LLMConfig) *LLMSettingService {

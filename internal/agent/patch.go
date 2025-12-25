@@ -1,6 +1,6 @@
 package agent
 
-import "assistant-qisumi/internal/task"
+import "assistant-qisumi/internal/domain"
 
 type PatchKind string
 
@@ -28,24 +28,24 @@ type TaskPatch struct {
 // --- 各种具体 Patch Payload ---
 
 type UpdateTaskPatch struct {
-	TaskID uint64                `json:"taskId"`
-	Fields task.UpdateTaskFields `json:"fields"`
+	TaskID uint64                  `json:"taskId"`
+	Fields domain.UpdateTaskFields `json:"fields"`
 }
 
 type UpdateStepPatch struct {
-	TaskID uint64                `json:"taskId"`
-	StepID uint64                `json:"stepId"`
-	Fields task.UpdateStepFields `json:"fields"`
+	TaskID uint64                  `json:"taskId"`
+	StepID uint64                  `json:"stepId"`
+	Fields domain.UpdateStepFields `json:"fields"`
 }
 
 type AddStepsPatch struct {
-	TaskID        uint64               `json:"taskId"`
-	ParentStepID  *uint64              `json:"parentStepId,omitempty"`
-	StepsToInsert []task.NewStepRecord `json:"stepsToInsert"`
+	TaskID        uint64                 `json:"taskId"`
+	ParentStepID  *uint64                `json:"parentStepId,omitempty"`
+	StepsToInsert []domain.NewStepRecord `json:"stepsToInsert"`
 }
 
 type AddDependenciesPatch struct {
-	Items []task.DependencyItem `json:"items"`
+	Items []domain.DependencyItem `json:"items"`
 }
 
 type MarkTasksFocusTodayPatch struct {
@@ -53,9 +53,9 @@ type MarkTasksFocusTodayPatch struct {
 }
 
 type CreateTaskPatch struct {
-	Title       string               `json:"title"`
-	Description string               `json:"description"`
-	DueAt       *string              `json:"dueAt,omitempty"`
-	Priority    string               `json:"priority"`
-	Steps       []task.NewStepRecord `json:"steps"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	DueAt       *string                `json:"dueAt,omitempty"`
+	Priority    string                 `json:"priority"`
+	Steps       []domain.NewStepRecord `json:"steps"`
 }

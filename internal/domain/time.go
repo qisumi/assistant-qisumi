@@ -1,4 +1,4 @@
-package task
+package domain
 
 import (
 	"database/sql/driver"
@@ -15,13 +15,13 @@ type FlexibleTime struct {
 
 // 支持的日期格式列表
 var timeFormats = []string{
-	time.RFC3339,                // "2006-01-02T15:04:05Z07:00"
-	"2006-01-02T15:04:05Z",     // "2006-01-02T15:04:05Z"
-	"2006-01-02T15:04:05",      // "2006-01-02T15:04:05"
-	"2006-01-02 15:04:05",      // "2006-01-02 15:04:05"
-	"2006-01-02",                // "2006-01-02" (仅日期)
-	"2006/01/02",                // "2006/01/02"
-	"2006年01月02日",             // "2006年01月02日"
+	time.RFC3339,           // "2006-01-02T15:04:05Z07:00"
+	"2006-01-02T15:04:05Z", // "2006-01-02T15:04:05Z"
+	"2006-01-02T15:04:05",  // "2006-01-02T15:04:05"
+	"2006-01-02 15:04:05",  // "2006-01-02 15:04:05"
+	"2006-01-02",           // "2006-01-02" (仅日期)
+	"2006/01/02",           // "2006/01/02"
+	"2006年01月02日",          // "2006年01月02日"
 }
 
 // UnmarshalJSON 实现 json.Unmarshaler 接口
@@ -119,7 +119,7 @@ func ParseRFC3339(s string) (time.Time, error) {
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("无法解析 RFC3339 时间: %w", err)
+		return time.Time{}, fmt.Errorf("invalid RFC3339 time: %w", err)
 	}
 	return t, nil
 }
