@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Button, Drawer, Avatar, Space, Tooltip, Grid } from 'antd';
+import { Layout, Menu, Button, Drawer, Avatar, Space, Tooltip } from 'antd';
 import {
     UnorderedListOutlined,
     SettingOutlined,
@@ -15,15 +15,13 @@ import { useAuthStore } from '../../store/authStore';
 import { useResponsive } from '@/hooks';
 
 const { Header, Content, Sider } = Layout;
-const { useBreakpoint } = Grid;
 
 const AppLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout, user } = useAuthStore();
     const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-    const screens = useBreakpoint();
-    const { isMobile, isTablet, isDesktop, screenSize } = useResponsive();
+    const { isMobile, isTablet, isDesktop } = useResponsive();
 
     // Responsive sizing
     const contentMargin = isMobile ? 12 : isTablet ? 16 : 20;

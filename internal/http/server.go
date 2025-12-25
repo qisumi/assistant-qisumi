@@ -53,6 +53,15 @@ func NewServer(cfg config.HTTPConfig, jwtCfg config.JWTConfig, cryptoCfg config.
 
 // setupRoutes 设置路由
 func (s *Server) setupRoutes() {
+	// 初始化静态文件服务
+	staticSvc, err := NewStaticFileService()
+	if err != nil {
+		panic(err)
+	}
+
+	// 注册静态文件路由（必须在API路由之前，因为NoRoute会处理所有未匹配的路由）
+	staticSvc.RegisterRoutes(s.engine)
+
 	// API路由组
 	api := s.engine.Group("/api")
 	{

@@ -1,0 +1,71 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 文档
+README.md
+CLAUDE.md
+TODO.md
+*.md
+!CLAUDE.md
+
+# 开发工具
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 测试
+*_test.go
+test/
+*.test
+
+# 构建产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+build/
+
+# 依赖
+vendor/
+node_modules/
+
+# 日志
+*.log
+logs/
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 临时文件
+tmp/
+temp/
+.tmp/
+
+# 前端（后端构建时不需要）
+frontend/
+!frontend/Dockerfile
+!frontend/nginx.conf
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 其他
+.cache/
+coverage/

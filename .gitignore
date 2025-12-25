@@ -12,6 +12,11 @@ build/
 
 # Go编译输出
 assistant-qisumi
+assistant-qisumi.exe
+
+# 静态文件目录（构建时生成，但保留 .gitkeep）
+static/*
+!static/.gitkeep
 
 # IDE配置
 .idea/
